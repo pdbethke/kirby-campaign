@@ -85,7 +85,7 @@ def test_kirby_combat_does_not_import_this_package():
 
 def test_the_one_declared_dependency_is_the_engine():
     text = (ROOT / "pyproject.toml").read_text()
-    assert 'dependencies = ["kirby-combat>=0.13.0"]' in text
+    assert 'dependencies = ["kirby-combat>=0.14.0"]' in text
 
 
 def test_the_package_imports():
