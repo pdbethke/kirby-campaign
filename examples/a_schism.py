@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 
+from kirby_combat.side import Side
+
 from kirby_campaign import (
     Team,
     TeamMember,
@@ -43,7 +45,7 @@ from kirby_campaign import (
 class Fighter:
     """Whatever a consumer's combatant is. Only `id` and `side` are read."""
     id: str
-    side: str | None = None
+    side: Side | None = None
 
 
 SENTINELS = Team(
@@ -80,7 +82,8 @@ def _show(title: str, fighters: list[Fighter]) -> None:
     print(f"\n  {title}")
     by_side: dict[str, list[str]] = {}
     for fighter in fighters:
-        by_side.setdefault(fighter.side or f"solo:{fighter.id}", []).append(fighter.id)
+        side = fighter.side or Side.solo(fighter.id)
+        by_side.setdefault(side.name, []).append(fighter.id)
     for side, ids in by_side.items():
         print(f"    {side:<18} {', '.join(sorted(ids))}")
 
@@ -96,7 +99,9 @@ def main() -> None:
         print(f"    leader : {leader}")
         print(f"    bases  : {', '.join(team.base_ids) or '(none)'}")
 
-    print(f"\n  sides_from_teams -> {sides_from_teams(teams)}")
+    print("\n  sides_from_teams ->")
+    for cid, side in sides_from_teams(teams).items():
+        print(f"    {cid:<10} {side.name:<18} (team_id={side.team_id})")
 
     # ---- 1. The obvious mapping ----
     _show("Everyone fights for their team:", assign_sides(ROSTER, teams))
@@ -109,8 +114,8 @@ def main() -> None:
     loyalists = {"aurora", "cinder"}
     defectors = {"bulwark"}
     split = [
-        replace(f, side="Loyalists") if f.id in loyalists
-        else replace(f, side="Iron Chorus") if f.id in defectors
+        replace(f, side=Side.named("Loyalists")) if f.id in loyalists
+        else replace(f, side=Side.named("Iron Chorus")) if f.id in defectors
         else f
         for f in ROSTER
     ]

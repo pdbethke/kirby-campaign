@@ -25,14 +25,21 @@ sentinels = Team(
     base_ids=("dawn-spire",),
 )
 sides_from_teams([sentinels])
-# {'aurora': 'Sentinels of Dawn', 'bulwark': 'Sentinels of Dawn'}
+# {'aurora': Side(id='sentinels of dawn', name='Sentinels of Dawn',
+#                 team_id='sentinels'), 'bulwark': ...}
 ```
 
-That mapping is exactly what a combatant's `side` wants, which is why this
-package **does not import kirby-combat and kirby-combat does not import
-it** — the bridge is a plain string. Typing `side` as a `Team` reference
-would make every attack resolution depend on knowing what a campaign is.
-`tests/test_independence.py` is what keeps that true.
+A `Side` is an object, not a string — `Side.named` folds case and spacing
+into one identity, so `"Golden"` and `"golden"` are one army rather than
+two. It lives in **kirby-combat**, because a free-for-all in an alley has
+sides and no campaign at all.
+
+## The dependency runs one way
+
+kirby-campaign sits **above** kirby-combat and imports it. The reverse must
+never happen: if the engine imported this package, resolving an attack would
+depend on knowing what a campaign is, dragging rosters and narrative prose
+behind every roll. `tests/test_independence.py` asserts both halves.
 
 ## Two tiers
 

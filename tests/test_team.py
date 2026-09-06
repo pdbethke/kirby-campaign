@@ -10,12 +10,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import pytest
+from kirby_combat.side import Side
 
 from kirby_campaign import (
     TEAM_TYPES,
     Team,
     TeamMember,
     assign_sides,
+    side_of_team,
     sides_from_teams,
     teams_of,
 )
@@ -27,7 +29,7 @@ class _Fighter:
     kirby-combat: this package must not depend on it, and a test that
     imported it would hide that."""
     id: str
-    side: str | None = None
+    side: Side | None = None
 
 
 def _team(name: str, *ids: str, team_type: str = "hero", **kw) -> Team:
@@ -149,13 +151,26 @@ def test_members_map_to_their_team_name():
     heroes = _team("Sentinels", "aurora", "bulwark")
     villains = _team("Iron Chorus", "nemesis", team_type="villain")
     assert sides_from_teams([heroes, villains]) == {
-        "aurora": "Sentinels", "bulwark": "Sentinels", "nemesis": "Iron Chorus",
+        "aurora": side_of_team(heroes),
+        "bulwark": side_of_team(heroes),
+        "nemesis": side_of_team(villains),
     }
 
 
-def test_the_side_is_the_name_not_the_id():
-    """`side` is reported back as the winner, so it must read."""
-    assert sides_from_teams([_team("Sentinels", "aurora")])["aurora"] == "Sentinels"
+def test_the_side_reads_as_the_team_name():
+    """`side` is reported back as the winner, so it must read -- and it
+    carries `team_id` back to the standing group it came from."""
+    team = _team("Sentinels", "aurora")
+    side = sides_from_teams([team])["aurora"]
+    assert side.name == "Sentinels"
+    assert side.team_id == team.id
+    assert not side.is_solo
+
+
+def test_two_teams_named_alike_cannot_become_two_armies():
+    """`Side.named` folds case and spacing, so the typo that once added a
+    fifth army is now impossible to construct."""
+    assert side_of_team(_team("Golden")) == side_of_team(_team("golden"))
 
 
 def test_a_character_on_two_teams_raises():
@@ -175,7 +190,7 @@ def test_the_conflict_names_the_character_and_both_teams():
 
 def test_the_same_team_listed_twice_is_not_a_conflict():
     team = _team("Sentinels", "aurora")
-    assert sides_from_teams([team, team]) == {"aurora": "Sentinels"}
+    assert sides_from_teams([team, team]) == {"aurora": side_of_team(team)}
 
 
 def test_teams_of_returns_every_team_a_character_is_on():
@@ -193,7 +208,7 @@ def test_assign_sides_fills_the_side_in_from_the_team():
     teams = [_team("Sentinels", "aurora"),
              _team("Iron Chorus", "nemesis", team_type="villain")]
     assert [f.side for f in assign_sides(fighters, teams)] == [
-        "Sentinels", "Iron Chorus",
+        side_of_team(teams[0]), side_of_team(teams[1]),
     ]
 
 
@@ -201,17 +216,19 @@ def test_an_explicit_side_outranks_standing_membership():
     """THE CIVIL WAR CASE. Two teammates on opposite sides of one fight,
     without editing the team -- which is the whole reason side and team
     are separate things."""
-    fighters = [_Fighter("aurora", side="Loyalists"), _Fighter("bulwark")]
+    loyalists = Side.named("Loyalists")
+    fighters = [_Fighter("aurora", side=loyalists), _Fighter("bulwark")]
     teams = [_team("Sentinels", "aurora", "bulwark")]
     assert [f.side for f in assign_sides(fighters, teams)] == [
-        "Loyalists", "Sentinels",
+        loyalists, side_of_team(teams[0]),
     ]
 
 
 def test_overwrite_forces_the_team_side():
-    fighters = [_Fighter("aurora", side="Loyalists")]
-    out = assign_sides(fighters, [_team("Sentinels", "aurora")], overwrite=True)
-    assert out[0].side == "Sentinels"
+    team = _team("Sentinels", "aurora")
+    fighters = [_Fighter("aurora", side=Side.named("Loyalists"))]
+    out = assign_sides(fighters, [team], overwrite=True)
+    assert out[0].side == side_of_team(team)
 
 
 def test_a_combatant_on_no_team_is_left_alone():

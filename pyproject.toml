@@ -6,13 +6,17 @@ requires-python = ">=3.12"
 license = {text = "PolyForm Noncommercial License 1.0.0"}
 readme = "README.md"
 authors = [{name = "PeterB"}]
-# Zero dependencies, and that is the point. This package holds the campaign
-# entity layer's RULES -- what a Team is, who is on it, how a definition and
-# a campaign instance merge -- and no storage, so it is testable in memory
-# and cannot drift. It does NOT depend on kirby-combat, and kirby-combat does
-# not depend on it: the bridge between a standing team and a fight's sides is
-# a plain string. See the module docstring in team.py.
-dependencies = []
+# One dependency, and its DIRECTION is the design. kirby-campaign sits ABOVE
+# kirby-combat: a Team becomes a `Side`, and `Side` lives in the engine
+# because a free-for-all in an alley has sides and no campaign at all.
+#
+# The reverse must never happen. If kirby-combat imported this package,
+# resolving an attack would depend on knowing what a campaign is, dragging
+# rosters, narrative prose and eventually tenancy behind every roll.
+# `tests/test_independence.py` is what keeps that true.
+#
+# No storage, so this is still testable in memory with nothing running.
+dependencies = ["kirby-combat>=0.13.0"]
 
 [project.urls]
 Repository = "https://github.com/pdbethke/kirby-campaign"

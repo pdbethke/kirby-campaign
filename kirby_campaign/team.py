@@ -60,6 +60,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
 
+from kirby_combat.side import Side
+
 #: The team kinds kirby-api's ``team_def.team_type`` CHECK constraint
 #: allows, copied verbatim so the two cannot drift. "neutral" and "other"
 #: are as legal as "hero" --- an agency or a faction is a team.
@@ -166,14 +168,26 @@ class Team:
         )
 
 
-def sides_from_teams(teams: Iterable[Team]) -> dict[str, str]:
-    """Map each member to their team's name --- the default fight alignment.
+def side_of_team(team: Team) -> Side:
+    """The ``Side`` a team fights as.
 
-    The result is exactly what a combatant's ``side`` wants: a free string
-    per character. Team NAME rather than id, because ``side`` is what gets
-    reported back as the winner and "Avengers" reads better than a UUID.
-    ``kirby_combat.loop.validate_sides`` will catch two teams whose names
-    differ only in case before that can quietly become two armies.
+    Named for the team, so a result reads "Iron Chorus wins" rather than a
+    UUID, and carrying ``team_id`` as the back-reference from the fight to
+    the standing group. ``Side.named`` folds case and spacing into one id,
+    so two teams whose names differ only in spelling cannot become two
+    armies --- prevented at construction rather than validated afterwards.
+    """
+    return Side.named(team.name, team_id=team.id)
+
+
+def sides_from_teams(teams: Iterable[Team]) -> dict[str, Side]:
+    """Map each member to their team's ``Side`` --- the default alignment.
+
+    The result is exactly what a combatant's ``side`` wants. ``Side`` lives
+    in kirby-combat, not here: a free-for-all in an alley has sides and no
+    campaign, so the engine owns the class and this package builds
+    instances of it. That direction is the whole reason the dependency is
+    safe.
 
     A character on two teams RAISES rather than silently taking the last
     one, since which side they fight for would otherwise depend on
@@ -181,14 +195,15 @@ def sides_from_teams(teams: Iterable[Team]) -> dict[str, str]:
     setting that character's side for that fight --- which is the whole
     reason side and team are separate things.
     """
-    sides: dict[str, str] = {}
+    sides: dict[str, Side] = {}
     conflicts: dict[str, set[str]] = {}
     for team in teams:
+        side = side_of_team(team)
         for member_id in team.member_ids:
             previous = sides.get(member_id)
-            if previous is not None and previous != team.name:
-                conflicts.setdefault(member_id, {previous}).add(team.name)
-            sides[member_id] = team.name
+            if previous is not None and previous != side:
+                conflicts.setdefault(member_id, {previous.name}).add(side.name)
+            sides[member_id] = side
     if conflicts:
         detail = "; ".join(
             f"{cid!r} on {sorted(names)}" for cid, names in sorted(conflicts.items())
