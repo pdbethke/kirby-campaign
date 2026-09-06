@@ -30,7 +30,12 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 
 from kirby_campaign import (
-    Team, TeamMember, assign_sides, effective_team, sides_from_teams, teams_of,
+    Team,
+    TeamMember,
+    assign_sides,
+    effective_team,
+    sides_from_teams,
+    teams_of,
 )
 
 

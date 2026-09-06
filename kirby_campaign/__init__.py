@@ -12,14 +12,29 @@ reference would have made combat depend on the campaign layer, dragging
 narrative prose and tenancy behind every fight.
 """
 from kirby_campaign.team import (
-    TEAM_TYPES, Team, TeamMember, assign_sides, sides_from_teams, teams_of,
+    TEAM_TYPES,
+    Team,
+    TeamMember,
+    assign_sides,
+    sides_from_teams,
+    teams_of,
 )
 from kirby_campaign.tiers import (
-    TEAM_OVERRIDES, TEAM_STATE, effective, effective_team,
+    TEAM_OVERRIDES,
+    TEAM_STATE,
+    effective,
+    effective_team,
 )
 
 __all__ = [
-    "TEAM_TYPES", "Team", "TeamMember",
-    "sides_from_teams", "assign_sides", "teams_of",
-    "effective", "effective_team", "TEAM_OVERRIDES", "TEAM_STATE",
+    "TEAM_OVERRIDES",
+    "TEAM_STATE",
+    "TEAM_TYPES",
+    "Team",
+    "TeamMember",
+    "assign_sides",
+    "effective",
+    "effective_team",
+    "sides_from_teams",
+    "teams_of",
 ]

@@ -27,6 +27,10 @@ def test_example_runs_to_completion(script: pathlib.Path):
     result = subprocess.run(
         [sys.executable, str(script)],
         cwd=_REPO_ROOT, capture_output=True, text=True, timeout=120,
+        # check=False: a non-zero exit is the thing under test, and the
+        # assertion below reports it with the script's own output. Raising
+        # here would lose the stdout/stderr that says WHY it failed.
+        check=False,
     )
     assert result.returncode == 0, (
         f"{script.name} exited {result.returncode}\n"

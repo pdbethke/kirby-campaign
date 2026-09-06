@@ -57,8 +57,8 @@ in kirby-combat.
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from typing import Iterable
 
 #: The team kinds kirby-api's ``team_def.team_type`` CHECK constraint
 #: allows, copied verbatim so the two cannot drift. "neutral" and "other"
@@ -155,11 +155,11 @@ class Team:
     def __contains__(self, character_id: object) -> bool:
         return any(m.character_id == character_id for m in self.members)
 
-    def with_member(self, member: TeamMember) -> "Team":
+    def with_member(self, member: TeamMember) -> Team:
         """A new Team with ``member`` added. Immutable, like everything here."""
         return replace(self, members=(*self.members, member))
 
-    def without_member(self, character_id: str) -> "Team":
+    def without_member(self, character_id: str) -> Team:
         return replace(
             self,
             members=tuple(m for m in self.members if m.character_id != character_id),

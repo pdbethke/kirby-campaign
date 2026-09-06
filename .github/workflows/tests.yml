@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package + dev deps
+        run: pip install -e .[dev]
+      - name: Lint
+        run: ruff check .
+      - name: Run tests
+        # Runs offline with no fixtures, no database and no configuration.
+        # If this suite ever needs an environment variable, something that is
+        # not the entity layer has moved into the package.
+        #
+        # `test_independence.py` is the one worth watching: it asserts by AST
+        # that nothing here imports kirby-combat (or kirby-cost, kirby-sheet,
+        # kirby-terrain). The bridge from a standing team to a fight's sides
+        # is a plain string, and only that test keeps it so.
+        run: pytest -q --tb=short --cov=kirby_campaign --cov-report=term-missing

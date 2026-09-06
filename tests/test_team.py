@@ -12,7 +12,12 @@ from dataclasses import dataclass
 import pytest
 
 from kirby_campaign import (
-    TEAM_TYPES, Team, TeamMember, assign_sides, sides_from_teams, teams_of,
+    TEAM_TYPES,
+    Team,
+    TeamMember,
+    assign_sides,
+    sides_from_teams,
+    teams_of,
 )
 
 

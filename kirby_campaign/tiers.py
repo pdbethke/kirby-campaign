@@ -33,7 +33,8 @@ not, and the merge cannot tell them apart, so it honours both.
 """
 from __future__ import annotations
 
-from typing import Any, Iterable, Mapping
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 #: Sentinel for "this key was absent", distinct from a stored ``None``.
 _MISSING = object()
