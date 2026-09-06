@@ -1,0 +1,36 @@
+[project]
+name = "kirby-campaign"
+version = "0.1.0"
+description = "Teams, rosters and campaign entities for the Kirby HERO System platform"
+requires-python = ">=3.12"
+license = {text = "PolyForm Noncommercial License 1.0.0"}
+readme = "README.md"
+authors = [{name = "PeterB"}]
+# Zero dependencies, and that is the point. This package holds the campaign
+# entity layer's RULES -- what a Team is, who is on it, how a definition and
+# a campaign instance merge -- and no storage, so it is testable in memory
+# and cannot drift. It does NOT depend on kirby-combat, and kirby-combat does
+# not depend on it: the bridge between a standing team and a fight's sides is
+# a plain string. See the module docstring in team.py.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/pdbethke/kirby-campaign"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["kirby_campaign*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
