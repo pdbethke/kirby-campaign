@@ -16,7 +16,7 @@ authors = [{name = "PeterB"}]
 # `tests/test_independence.py` is what keeps that true.
 #
 # No storage, so this is still testable in memory with nothing running.
-dependencies = ["kirby-combat>=0.14.0"]
+dependencies = ["kirby-combat>=0.16.0"]
 
 [project.urls]
 Repository = "https://github.com/pdbethke/kirby-campaign"
