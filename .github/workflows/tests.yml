@@ -25,7 +25,6 @@ jobs:
         # not the entity layer has moved into the package.
         #
         # `test_independence.py` is the one worth watching: it asserts by AST
-        # that nothing here imports kirby-combat (or kirby-cost, kirby-sheet,
-        # kirby-terrain). The bridge from a standing team to a fight's sides
-        # is a plain string, and only that test keeps it so.
+        # that the dependency runs ONE way. This package imports kirby-combat
+        # (a Team becomes a `Side`); kirby-combat must never import this one.
         run: pytest -q --tb=short --cov=kirby_campaign --cov-report=term-missing
