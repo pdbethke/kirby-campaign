@@ -1,6 +1,6 @@
 [project]
 name = "kirby-campaign"
-version = "0.1.0"
+version = "0.1.1"
 description = "Teams, rosters and campaign entities for the Kirby HERO System platform"
 requires-python = ">=3.12"
 license = {text = "PolyForm Noncommercial License 1.0.0"}
