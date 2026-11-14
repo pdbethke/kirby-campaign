@@ -245,8 +245,8 @@ def teams_of(character_id: str, teams: Iterable[Team]) -> tuple[Team, ...]:
     """Every team the character is on, in the order given.
 
     Plural deliberately: membership in several teams is legal as a
-    standing fact (a character can be an Avenger and a Defender). It is
-    only ambiguous when a FIGHT needs one side, which is where
-    ``sides_from_teams`` raises.
+    standing fact (a character can be on a hero team and on a second,
+    separate team). It is only ambiguous when a FIGHT needs one side, which
+    is where ``sides_from_teams`` raises.
     """
     return tuple(team for team in teams if character_id in team)
