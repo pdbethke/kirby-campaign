@@ -1,4 +1,4 @@
-"""Team — a named, standing group of characters. The Avengers.
+"""Team — a named, standing group of characters: a superhero team.
 
 WHAT WAS ALREADY BUILT, AND WHERE. kirby-api has a full team system:
 ``TeamDef`` (the definition), ``TeamMemberDef`` (roster rows, carrying a
@@ -19,14 +19,14 @@ those books carries its *tactics, its roster, and its base*, which is why
 this shape carries all three.
 
 TEAM IS NOT SIDE, AND CONFLATING THEM IS THE TRAP. A Team is an identity
-that persists between fights --- you are an Avenger on Tuesday and still
+that persists between fights --- you are on the team on Tuesday and still
 one on Wednesday. A ``side`` is an alignment within ONE fight: who is
 shooting at whom right now. They usually agree, and they must be able to
 disagree:
 
-* Two Avengers on opposite sides of a training bout, or a schism.
-* An Avenger and a villain temporarily allied against something worse.
-* A mind-controlled Avenger fighting their own team --- which kirby-api
+* Two teammates on opposite sides of a training bout, or a schism.
+* A team member and a villain temporarily allied against something worse.
+* A mind-controlled team member fighting their own team --- which kirby-api
   already models by widening the target set when the control degree
   reaches "contrary".
 
@@ -36,7 +36,7 @@ wants Civil War overrides the side and keeps the Team.
 
 Measured 2026-09-06: nothing under ``kirby/combat/`` in the parked driver
 ever read ``TeamMemberDef`` or ``team_member_def``. The link from "the
-Avengers" to "who is on my side in this fight" did not exist in code at
+team" to "who is on my side in this fight" did not exist in code at
 all --- sides were set by hand, per fight. This module is that link.
 
 WHAT MOVED AND WHAT DID NOT. ``TeamDef`` carries twenty columns. Three
