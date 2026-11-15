@@ -1,6 +1,6 @@
 [project]
 name = "kirby-campaign"
-version = "0.1.1"
+version = "0.2.0"
 description = "Teams, rosters and campaign entities for the Kirby HERO System platform"
 requires-python = ">=3.12"
 license = {text = "PolyForm Noncommercial License 1.0.0"}
@@ -16,7 +16,7 @@ authors = [{name = "PeterB"}]
 # `tests/test_independence.py` is what keeps that true.
 #
 # No storage, so this is still testable in memory with nothing running.
-dependencies = ["kirby-combat>=0.16.0"]
+dependencies = ["kirby-combat>=0.39.0"]
 
 [project.urls]
 Repository = "https://github.com/pdbethke/kirby-campaign"
