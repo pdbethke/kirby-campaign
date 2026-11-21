@@ -10,9 +10,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kirby_campaign._checks import require_choice
 from kirby_campaign.membership import Membership
-from kirby_campaign.underworld import ChainStep
+from kirby_campaign.underworld import ChainStep, UnderworldLimits
 from kirby_campaign.world_state import WorldState
+
+#: The highest failure chance the fallback gives (spec §6.7a).
+FAILURE_CAP = 0.95
+HIT_HOWS = ("fight", "odds")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -77,3 +82,58 @@ def select_hit_squad(step: ChainStep, *, state: WorldState) -> Squad:
     return Squad(attackers=tuple(chosen), defenders=tuple(defenders), target_id=target_id,
                  attacker_org_id=attacker.id,
                  defender_org_id=None if side is None else side.organisation_id)
+
+
+@dataclass(frozen=True, kw_only=True)
+class HitResult:
+    """What happened in a hit, however it was resolved."""
+
+    target_killed: bool
+    #: Everyone who died, on either side.
+    casualties: tuple[str, ...]
+    #: Defenders who lived and saw who came for them.
+    survivors_who_saw: tuple[str, ...]
+    #: Whether the street learned who did it.
+    leaked: bool
+    how: str
+
+    def __post_init__(self) -> None:
+        require_choice("hit result", "how", self.how, HIT_HOWS)
+
+
+def _strength(state: WorldState, org_id: str) -> float:
+    org = state.organisation(org_id)
+    if org.influence is None or org.influence <= 0:
+        raise ValueError(
+            f"organisation {org_id!r} has no strength (influence {org.influence!r}); "
+            "a hit by odds needs both sides' influence"
+        )
+    return org.influence
+
+
+def failure_chance(step: ChainStep, *, state: WorldState, limits: UnderworldLimits) -> float:
+    """The fallback's chance that a hit fails: the target's rank base, scaled by
+    the defending organisation's strength against the attacker's, capped."""
+    side = _side_of(state, step.target.id)
+    if side is None:
+        return limits.outsider_failure_base
+    org = state.organisation(side.organisation_id)
+    base = org.rank(side.rank).hit_failure_base
+    attacker = _strength(state, step.actor_org_id)
+    defender = _strength(state, org.id)
+    return min(FAILURE_CAP, base * 2 * defender / (attacker + defender))
+
+
+def resolve_hit_by_odds(step: ChainStep, *, state: WorldState, limits: UnderworldLimits,
+                        roll: float, leak_roll: float) -> HitResult:
+    """Resolve a hit without a fight. The caller draws both rolls (in [0, 1))
+    and records them, so the outcome can be replayed."""
+    for name, value in (("roll", roll), ("leak_roll", leak_roll)):
+        if not 0.0 <= value < 1.0:
+            raise ValueError(f"{name} must be in [0, 1), got {value}")
+    target = step.target.id
+    if roll < failure_chance(step, state=state, limits=limits):
+        return HitResult(target_killed=False, casualties=(), survivors_who_saw=(target,),
+                         leaked=leak_roll < limits.leak_chance, how="odds")
+    return HitResult(target_killed=True, casualties=(target,), survivors_who_saw=(),
+                     leaked=False, how="odds")

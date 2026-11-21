@@ -6,21 +6,10 @@ from kirby_campaign import (
     ChainStep,
     EntityRef,
     Organisation,
-    UnderworldLimits,
     WorldState,
     validate_step,
 )
-from tests.conftest import person
-
-
-def make_limits(**over):
-    fields = {"world_id": "w-1", "max_hits_per_week": 2,
-              "protected_people": {"p-coil": "untouchable"},
-              "protected_offices": {"mayor": "untouchable"},
-              "outsider_failure_base": 0.05, "leak_chance": 0.3}
-    fields.update(over)
-    return UnderworldLimits(**fields)
-
+from tests.conftest import make_limits, person
 
 LIMITS = make_limits()
 

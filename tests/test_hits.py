@@ -4,8 +4,16 @@ from dataclasses import replace
 
 import pytest
 
-from kirby_campaign import ChainStep, EntityRef, WorldDate, WorldState, select_hit_squad
-from tests.conftest import membership
+from kirby_campaign import (
+    ChainStep,
+    EntityRef,
+    WorldDate,
+    WorldState,
+    failure_chance,
+    resolve_hit_by_odds,
+    select_hit_squad,
+)
+from tests.conftest import make_limits, membership
 
 
 def hit(target, actor="talley-outfit"):
@@ -85,3 +93,65 @@ def test_a_squad_is_picked_only_for_a_hit(records):
     with pytest.raises(ValueError, match="claim_turf"):
         select_hit_squad(turf, state=WorldState(**records))
 
+
+
+# ── failure_chance / resolve_hit_by_odds (the fallback) ──────────────────────
+
+
+
+def with_influence(records, org_id, value):
+    records["organisations"] = tuple(replace(o, influence=value) if o.id == org_id else o
+                                     for o in records["organisations"])
+
+
+def test_even_strength_gives_the_rank_base(records):
+    assert failure_chance(hit("p-sal"), state=WorldState(**records),
+                          limits=make_limits()) == pytest.approx(0.4)
+
+
+def test_a_stronger_attacker_roughly_halves_it(records):
+    with_influence(records, "talley-outfit", 100.0)
+    assert failure_chance(hit("p-sal"), state=WorldState(**records),
+                          limits=make_limits()) == pytest.approx(0.4 * 2 * 50 / 150)
+
+
+def test_the_chance_is_capped(records):
+    with_influence(records, "talley-outfit", 1.0)
+    assert failure_chance(hit("p-coil"), state=WorldState(**records),
+                          limits=make_limits()) == pytest.approx(0.95)
+
+
+def test_an_outsider_uses_the_world_base(records):
+    assert failure_chance(hit("p-mayor"), state=WorldState(**records),
+                          limits=make_limits(outsider_failure_base=0.07)) == pytest.approx(0.07)
+
+
+@pytest.mark.parametrize("value", [None, 0.0])
+def test_a_side_without_strength_is_refused_by_name(records, value):
+    with_influence(records, "talley-outfit", value)
+    with pytest.raises(ValueError, match="talley-outfit"):
+        failure_chance(hit("p-sal"), state=WorldState(**records), limits=make_limits())
+
+
+def test_a_roll_under_the_chance_fails_and_may_leak(records):
+    state, limits = WorldState(**records), make_limits(leak_chance=0.3)
+    leaked = resolve_hit_by_odds(hit("p-sal"), state=state, limits=limits, roll=0.1,
+                                 leak_roll=0.2)
+    assert (leaked.target_killed, leaked.casualties, leaked.survivors_who_saw,
+            leaked.leaked, leaked.how) == (False, (), ("p-sal",), True, "odds")
+    quiet = resolve_hit_by_odds(hit("p-sal"), state=state, limits=limits, roll=0.1,
+                                leak_roll=0.9)
+    assert not quiet.leaked
+
+
+def test_a_roll_over_the_chance_kills(records):
+    r = resolve_hit_by_odds(hit("p-sal"), state=WorldState(**records), limits=make_limits(),
+                            roll=0.5, leak_roll=0.0)
+    assert (r.target_killed, r.casualties, r.leaked) == (True, ("p-sal",), False)
+
+
+@pytest.mark.parametrize("roll", [-0.1, 1.0])
+def test_rolls_are_in_the_unit_interval(records, roll):
+    with pytest.raises(ValueError, match="roll"):
+        resolve_hit_by_odds(hit("p-sal"), state=WorldState(**records), limits=make_limits(),
+                            roll=roll, leak_roll=0.5)
