@@ -9,6 +9,7 @@ from kirby_campaign import (
     Cause,
     EntityRef,
     Kin,
+    Membership,
     Office,
     Organisation,
     Person,
@@ -48,6 +49,17 @@ def organisation(id, name, kind, head, territory, *, ranks=MOB_RANKS, influence=
                         source_refs=(), source_status=None)
 
 
+COIL_RANKS = (
+    Rank(name="master", archetype_character_id="c-coilmaster", hit_failure_base=0.6, guards=2),
+    Rank(name="agent", archetype_character_id="c-coil-agent", hit_failure_base=0.1, guards=0),
+)
+
+
+def membership(org, who, rank):
+    return Membership(id=f"m-{org}-{who}", world_id=W, organisation_id=org, person_id=who,
+                      rank=rank, started=None, ended=None, source_ref=None, source_status=None)
+
+
 def world_records():
     """The records as a dict of WorldState's keyword arguments, so a test can
     swap one collection and build its own state."""
@@ -70,13 +82,32 @@ def world_records():
             person("p-coil", "The Coilmaster"),
             person("p-ada", "Ada Varga", pc=True, campaign_id="c-1"),
             person("p-dead", "Old Man Brenner", died=WorldDate(year=119, month=2, day=2)),
+            person("p-vic", "Vic Brenner"), person("p-b1", "Joey Brenner"),
+            person("p-b2", "Nico Marchetti"),
+            person("p-tlt", "Mags Talley"), person("p-t1", "Lenny Shaw"),
+            person("p-t2", "Dutch Okon"),
+            person("p-ca", "Agent Ferro"), person("p-cb", "Agent Lusk"),
+        ),
+        "memberships": (
+            membership("brenner-family", "p-sal", "boss"),
+            membership("brenner-family", "p-vic", "lieutenant"),
+            membership("brenner-family", "p-b1", "soldier"),
+            membership("brenner-family", "p-b2", "soldier"),
+            membership("talley-outfit", "p-rook", "boss"),
+            membership("talley-outfit", "p-tlt", "lieutenant"),
+            membership("talley-outfit", "p-t1", "soldier"),
+            membership("talley-outfit", "p-t2", "soldier"),
+            membership("the-coil", "p-coil", "master"),
+            membership("the-coil", "p-ca", "agent"),
+            membership("the-coil", "p-cb", "agent"),
         ),
         "organisations": (
             organisation("brenner-family", "The Brenner Family", "mob_family", "p-sal",
                          ("old-quarter",)),
             organisation("talley-outfit", "The Talley Outfit", "mob_family", "p-rook",
                          ("the-docks",)),
-            organisation("the-coil", "The Coil", "villain_org", "p-coil", ("the-docks",)),
+            organisation("the-coil", "The Coil", "villain_org", "p-coil", ("the-docks",),
+                         ranks=COIL_RANKS),
         ),
         "relations": (Relation(id="r-grudge", world_id=W, kind="grudge",
                                a=EntityRef(kind="organisation", id="talley-outfit"),

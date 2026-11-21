@@ -2,7 +2,7 @@
 import pytest
 
 from kirby_campaign import EntityRef, Relation, Tenure, WorldDate, WorldState
-from tests.conftest import organisation, person
+from tests.conftest import membership, organisation, person
 
 
 def test_lookups_find_records_by_id(records):
@@ -52,6 +52,7 @@ def test_a_record_from_another_world_is_refused(records):
 
 def test_a_head_who_is_not_in_the_world_is_refused(records):
     records["organisations"] = (organisation("ghosts", "Ghosts", "gang", "p-ghost", ()),)
+    records["memberships"] = (membership("ghosts", "p-ghost", "boss"),)
     with pytest.raises(ValueError, match="p-ghost"):
         WorldState(**records)
 

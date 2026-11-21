@@ -17,6 +17,7 @@ from kirby_campaign import (
     ChainStep,
     EntityRef,
     Kin,
+    Membership,
     Office,
     Organisation,
     Person,
@@ -86,6 +87,12 @@ state = WorldState(
                    family("talleys", "The Talley Outfit", "mob_family", "rook", ("the-docks",)),
                    family("okafors", "The Okafor Crew", "mob_family", "vera", ("hilltop",)),
                    family("coil", "The Coil", "villain_org", "coilmaster", ("the-docks",))),
+    memberships=tuple(
+        Membership(id=f"m-{org}-{who}", world_id=W, organisation_id=org, person_id=who,
+                   rank=rank, started=None, ended=None, source_ref=None, source_status=None)
+        for org, who, rank in (
+            ("brenners", "sal", "boss"), ("talleys", "rook", "boss"), ("okafors", "vera", "boss"),
+            ("coil", "coilmaster", "boss"))),
     relations=(Relation(id="grudge", world_id=W, kind="grudge",
                         a=EntityRef(kind="organisation", id="talleys"),
                         b=EntityRef(kind="organisation", id="brenners"),

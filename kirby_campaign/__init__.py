@@ -13,6 +13,7 @@ is, dragging rosters, narrative prose and eventually tenancy behind every
 roll. ``tests/test_independence.py`` is what keeps that true.
 """
 from kirby_campaign.campaign_layer import CampaignLayer, EncounterHook, visible_account
+from kirby_campaign.membership import Membership
 from kirby_campaign.organisation import (
     ENTITY_KINDS,
     ORGANISATION_KINDS,
@@ -96,6 +97,7 @@ __all__ = [
     "EntityRef",
     "Kin",
     "Law",
+    "Membership",
     "Office",
     "Organisation",
     "Person",

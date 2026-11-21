@@ -6,7 +6,17 @@ families. It must construct from kirby-world and kirby-campaign alone
 leaf test forbids it there)."""
 from kirby_world import SourceRef
 
-from kirby_campaign import Kin, Office, Organisation, Polity, Rank, Tenure, WorldDate, WorldState
+from kirby_campaign import (
+    Kin,
+    Membership,
+    Office,
+    Organisation,
+    Polity,
+    Rank,
+    Tenure,
+    WorldDate,
+    WorldState,
+)
 from tests.conftest import person
 
 W = "w-fms"
@@ -48,6 +58,12 @@ def test_an_fms_shaped_world_constructs():
             head_id="fms-person-2855", heir_id=None,
             territory=("fms-province-0",), influence=40.0, wealth=12.0,
             source_refs=(ref("family", "1"), ref("family", "31")), source_status="present"),),
+        memberships=tuple(
+            Membership(id=f"fms-membership-{who}", world_id=W, organisation_id="fms-org-delorme",
+                       person_id=who, rank=rank, started=None, ended=None,
+                       source_ref=ref("membership", who), source_status="present")
+            for who, rank in (("fms-person-2855", "patriarch"), ("fms-person-1", "member"),
+                              ("fms-person-404", "member"))),
         relations=(), events=(), laws=(),
     )
     assert tuple(p.id for p in state.holders_of("fms-nation-0-leader")) == ("fms-person-2855",)

@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from kirby_campaign.membership import Membership
 from kirby_campaign.organisation import Organisation, Relation
 from kirby_campaign.person import Person
 from kirby_campaign.polity import Office, Polity, Tenure
@@ -27,6 +28,7 @@ _KINDS = (
     ("tenures", "tenure"),
     ("people", "person"),
     ("organisations", "organisation"),
+    ("memberships", "membership"),
     ("relations", "relation"),
     ("events", "event"),
     ("laws", "law"),
@@ -41,6 +43,7 @@ class WorldState:
     tenures: tuple[Tenure, ...]
     people: tuple[Person, ...]
     organisations: tuple[Organisation, ...]
+    memberships: tuple[Membership, ...]
     relations: tuple[Relation, ...]
     events: tuple[WorldEvent, ...]
     laws: tuple[Law, ...]
@@ -97,10 +100,33 @@ class WorldState:
         for p in self.people:
             if p.polity_id is not None:
                 self._must_exist("polity", p.polity_id, f"person {p.id!r}", "polity_id")
+        open_in: dict[tuple[str, str], str] = {}
+        for ms in self.memberships:
+            owner = f"membership {ms.id!r}"
+            self._must_exist("organisation", ms.organisation_id, owner, "organisation_id")
+            org = self._index["organisation"][ms.organisation_id]
+            if ms.rank not in {r.name for r in org.ranks}:
+                raise ValueError(
+                    f"{owner}: rank {ms.rank!r} is not on {org.id!r}'s ladder "
+                    f"({', '.join(r.name for r in org.ranks)})"
+                )
+            if ms.is_open:
+                key = (ms.person_id, ms.organisation_id)
+                if key in open_in:
+                    raise ValueError(
+                        f"{ms.person_id!r} holds two open memberships in "
+                        f"{ms.organisation_id!r}: {open_in[key]!r} and {ms.id!r}"
+                    )
+                open_in[key] = ms.id
         for o in self.organisations:
             for role in ("head_id", "heir_id"):
-                if getattr(o, role) is not None:
-                    self._must_exist("person", getattr(o, role), f"organisation {o.id!r}", role)
+                who = getattr(o, role)
+                if who is not None:
+                    self._must_exist("person", who, f"organisation {o.id!r}", role)
+                    if (who, o.id) not in open_in:
+                        raise ValueError(
+                            f"organisation {o.id!r}: {role} {who!r} is not a current member"
+                        )
         for office in self.offices:
             owner = f"office {office.id!r}"
             self._must_exist("polity", office.polity_id, owner, "polity_id")
@@ -146,6 +172,25 @@ class WorldState:
 
     def event(self, event_id: str) -> WorldEvent:
         return self._get("event", event_id)
+
+    def members_of(self, organisation_id: str, *, rank: str | None) -> tuple[Membership, ...]:
+        """Open memberships, highest rank first, then by person id. ``rank`` picks
+        one rank; ``None`` means every rank (an explicit choice, not a default)."""
+        org = self.organisation(organisation_id)
+        found = [ms for ms in self.memberships
+                 if ms.organisation_id == organisation_id and ms.is_open
+                 and (rank is None or ms.rank == rank)]
+        return tuple(sorted(found, key=lambda ms: (org.rank_order(ms.rank), ms.person_id)))
+
+    def memberships_of(self, person_id: str) -> tuple[Membership, ...]:
+        """Open memberships of one person, in any organisation."""
+        return tuple(ms for ms in self.memberships if ms.person_id == person_id and ms.is_open)
+
+    def rank_of(self, person_id: str, organisation_id: str) -> str | None:
+        for ms in self.memberships_of(person_id):
+            if ms.organisation_id == organisation_id:
+                return ms.rank
+        return None
 
     def holders_of(self, office_id: str) -> tuple[Person, ...]:
         """Who holds ``office_id`` now (an open tenure)."""
