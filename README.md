@@ -63,6 +63,17 @@ Base is built with the base-building rules and imported from HDC, the same
 as a character — kirby-cost costs it, and in a fight its walls are terrain
 with BODY and DEF. Only the edge belongs in the entity layer.
 
+## The world model
+
+A campaign happens in a world that several campaigns can share. The world's
+records (`Polity`, `Office`, `Tenure`, `Person`, `Organisation`, `Relation`,
+`WorldEvent`, `Law`) are keyed by world, checked together by `WorldState`;
+a `CampaignLayer` holds only what one campaign owns: its player characters,
+what its players know, and the encounters waiting for its next session.
+Geography lives in kirby-world (`Atlas`, `Locale`); records refer to it by id.
+The underworld's planned moves are checked by `validate_step` against the
+world and the GM's `UnderworldLimits`. Run `examples/a_city_of_rival_families.py`.
+
 ## A note on content
 
 The **shape** here is publishable. The **teams** are not.

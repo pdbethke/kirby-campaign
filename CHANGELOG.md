@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.0
+
+### Added: the world model
+Records for a campaign world that several campaigns can share. Design: kirby
+`docs/superpowers/specs/2026-11-21-living-world-design.md` §6.2-6.7.
+
+- `Polity`, `Office`, `Tenure` (a reign is a tenure of the head-of-state office).
+- `Person` (a world identity, optionally linked to a HERO build; player
+  characters exist only in Kirby and belong to one campaign) and `Kin`.
+- `Organisation` (a dynasty, a mob family and a villain organisation are one
+  structure; it may be backed by several source families), `Relation`, `EntityRef`.
+- `WorldEvent` with a truth and a public account, `Cause`, `Law`, and two
+  knowledge tiers (`PUBLIC`, `TRUTH`, `account_at`).
+- `WorldState`: one world's records, checked together. Structural references
+  must resolve; kin and member ids may name people a source has pruned.
+- `CampaignLayer`, `EncounterHook`, `visible_account`: what one campaign owns
+  and what its players may read.
+- The underworld: `UnderworldLimits` (no defaults: no limits, no underworld),
+  `Chain`, `ChainStep`, `validate_step` (send, defer over the weekly cap, drop,
+  or route a step against a player character to their session).
+- `WorldDate` (years may precede year 1).
+- Depends on kirby-world 0.2.2 (`SourceRef`); `kirby_fms` is forbidden here.
+
 ## 0.2.0 — 2026-11-15
 
 ### Added — GM rulings
