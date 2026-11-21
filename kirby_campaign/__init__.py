@@ -55,6 +55,7 @@ from kirby_campaign.timeline import (
 from kirby_campaign.underworld import (
     DEFER,
     DROP,
+    PROTECTION_MODES,
     ROUTE_TO_SESSION,
     SEND,
     STEP_ACTIONS,
@@ -77,6 +78,7 @@ __all__ = [
     "LAW_STATUSES",
     "ORGANISATION_KINDS",
     "POLITY_KINDS",
+    "PROTECTION_MODES",
     "PUBLIC",
     "RELATION_KINDS",
     "ROUTE_TO_SESSION",

@@ -9,13 +9,18 @@ character's next session.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 
 from kirby_campaign._checks import require_choice, require_text
 from kirby_campaign.organisation import EntityRef
 from kirby_campaign.world_state import WorldState
 
 STEP_ACTIONS = ("hit", "claim_turf")
+#: How a protected person is protected. ``untouchable``: hits are dropped.
+#: ``encounters_only`` (player characters only): hits still reach their session.
+PROTECTION_MODES = ("untouchable", "encounters_only")
 STEP_STATUSES = ("planned", "done", "failed", "waiting_on_session", "dropped", "deferred")
 #: What each action may target.
 _TARGET_KIND = {"hit": "person", "claim_turf": "locale"}
@@ -34,16 +39,34 @@ class UnderworldLimits:
     world_id: str
     #: The most hits sent in one week, across all chains. Steps over the cap wait.
     max_hits_per_week: int
-    protected_person_ids: frozenset[str]
-    #: Anyone holding one of these offices is protected while they hold it.
-    protected_office_ids: frozenset[str]
+    #: Person id -> protection mode.
+    protected_people: Mapping[str, str]
+    #: Office id -> protection mode. Anyone holding the office is protected while
+    #: they hold it. Offices can only be ``untouchable``.
+    protected_offices: Mapping[str, str]
+    #: How hard someone with no organisation is to hit.
+    outsider_failure_base: float
+    #: The chance a failed hit's street account names the attacker.
+    leak_chance: float
 
     def __post_init__(self) -> None:
-        require_text("underworld limits", world_id=self.world_id)
+        owner = "underworld limits"
+        require_text(owner, world_id=self.world_id)
         if self.max_hits_per_week < 0:
             raise ValueError(
-                f"underworld limits: max_hits_per_week must be 0 or more, got {self.max_hits_per_week}"
+                f"{owner}: max_hits_per_week must be 0 or more, got {self.max_hits_per_week}"
             )
+        for who, mode in self.protected_people.items():
+            require_choice(f"{owner}: protection of {who!r}", "mode", mode, PROTECTION_MODES)
+        for office, mode in self.protected_offices.items():
+            if mode != "untouchable":
+                raise ValueError(f"{owner}: office {office!r} can only be untouchable, not {mode!r}")
+        for field in ("outsider_failure_base", "leak_chance"):
+            value = getattr(self, field)
+            if not 0.0 <= value <= 1.0:
+                raise ValueError(f"{owner}: {field} must be 0-1, got {value}")
+        object.__setattr__(self, "protected_people", MappingProxyType(dict(self.protected_people)))
+        object.__setattr__(self, "protected_offices", MappingProxyType(dict(self.protected_offices)))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -175,10 +198,16 @@ def validate_step(step: ChainStep, *, chain: Chain, state: WorldState,
         return _verdict(DROP, f"target {target_id!r} is gone from the world's source")
     if not target.alive:
         return _verdict(DROP, f"target {target_id!r} is already dead")
-    if target_id in limits.protected_person_ids:
+    mode = limits.protected_people.get(target_id)
+    if mode == "encounters_only" and not target.pc:
+        raise ValueError(
+            f"underworld limits protect {target_id!r} as encounters_only, but only a player "
+            "character has a session to send an encounter to"
+        )
+    if mode == "untouchable":
         return _verdict(DROP, f"target {target_id!r} is protected")
     for office in state.offices_held_by(target_id):
-        if office.id in limits.protected_office_ids:
+        if office.id in limits.protected_offices:
             return _verdict(DROP, f"target {target_id!r} holds protected office {office.id!r}")
     # A target that can never be hit is dropped now; only then does the step
     # wait for (or die with) the step it answers.

@@ -12,9 +12,17 @@ from kirby_campaign import (
 )
 from tests.conftest import person
 
-LIMITS = UnderworldLimits(world_id="w-1", max_hits_per_week=2,
-                          protected_person_ids=frozenset({"p-coil"}),
-                          protected_office_ids=frozenset({"mayor"}))
+
+def make_limits(**over):
+    fields = {"world_id": "w-1", "max_hits_per_week": 2,
+              "protected_people": {"p-coil": "untouchable"},
+              "protected_offices": {"mayor": "untouchable"},
+              "outsider_failure_base": 0.05, "leak_chance": 0.3}
+    fields.update(over)
+    return UnderworldLimits(**fields)
+
+
+LIMITS = make_limits()
 
 
 def _hit(target, *, actor="talley-outfit", relation="r-grudge", event=None, prior=None,
@@ -106,8 +114,7 @@ def test_a_later_step_may_answer_an_earlier_one():
 
 def test_limits_cannot_be_negative():
     with pytest.raises(ValueError, match="max_hits_per_week"):
-        UnderworldLimits(world_id="w-1", max_hits_per_week=-1,
-                         protected_person_ids=frozenset(), protected_office_ids=frozenset())
+        make_limits(max_hits_per_week=-1)
 
 
 def test_a_gone_person_is_dropped(records):
@@ -131,8 +138,7 @@ def test_a_turf_claim_is_sent_and_left_to_the_atlas(records):
 # ── final-review fixes ─────────────────────────────────────────────────────
 
 def test_limits_from_another_world_are_a_caller_error(records):
-    other = UnderworldLimits(world_id="w-2", max_hits_per_week=5,
-                             protected_person_ids=frozenset(), protected_office_ids=frozenset())
+    other = make_limits(world_id="w-2")
     with pytest.raises(ValueError, match="w-2.*w-1|w-1.*w-2"):
         _verdict(_hit("p-sal"), records, limits=other)
 
@@ -202,3 +208,36 @@ def test_a_turf_claim_also_waits_for_the_step_it_answers(records):
     v = validate_step(claim, chain=chain, state=WorldState(**records), limits=LIMITS,
                       hits_sent_this_week=0)
     assert v.outcome == "defer"
+
+
+def test_an_untouchable_player_character_is_left_alone(records):
+    limits = make_limits(protected_people={"p-ada": "untouchable"})
+    assert _verdict(_hit("p-ada"), records, limits=limits).outcome == "drop"
+
+
+def test_an_encounters_only_player_character_still_gets_the_encounter(records):
+    limits = make_limits(protected_people={"p-ada": "encounters_only"})
+    v = _verdict(_hit("p-ada"), records, limits=limits)
+    assert (v.outcome, v.campaign_id) == ("route_to_session", "c-1")
+
+
+def test_encounters_only_is_for_player_characters(records):
+    limits = make_limits(protected_people={"p-sal": "encounters_only"})
+    with pytest.raises(ValueError, match="p-sal"):
+        _verdict(_hit("p-sal"), records, limits=limits)
+
+
+def test_an_office_can_only_be_untouchable():
+    with pytest.raises(ValueError, match="mayor"):
+        make_limits(protected_offices={"mayor": "encounters_only"})
+
+
+def test_an_unknown_protection_mode_is_refused():
+    with pytest.raises(ValueError, match="bulletproof"):
+        make_limits(protected_people={"p-sal": "bulletproof"})
+
+
+@pytest.mark.parametrize("field", ["outsider_failure_base", "leak_chance"])
+def test_hit_chances_are_probabilities(field):
+    with pytest.raises(ValueError, match=field):
+        make_limits(**{field: 1.2})

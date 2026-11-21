@@ -100,8 +100,9 @@ state = WorldState(
                         cause_event_id=None, source_ref=None, source_status=None),),
     events=(), laws=(),
 )
-limits = UnderworldLimits(world_id=W, max_hits_per_week=2, protected_person_ids=frozenset(),
-                          protected_office_ids=frozenset({"mayor"}))
+limits = UnderworldLimits(world_id=W, max_hits_per_week=2, protected_people={},
+                          protected_offices={"mayor": "untouchable"},
+                          outsider_failure_base=0.05, leak_chance=0.3)
 
 
 def hit(id, actor, target, **motive):
