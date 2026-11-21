@@ -8,6 +8,8 @@ planned step is validated against the world and the GM's limits.
 Uses kirby-world (the geography) and kirby-campaign (everything else) only.
 Every name is invented.
 """
+from dataclasses import replace
+
 from kirby_world import Atlas, Locale
 
 from kirby_campaign import (
@@ -85,7 +87,7 @@ state = WorldState(
                         cause_event_id=None),),
     events=(), laws=(),
 )
-limits = UnderworldLimits(world_id=W, max_hits_per_week=1, protected_person_ids=frozenset(),
+limits = UnderworldLimits(world_id=W, max_hits_per_week=2, protected_person_ids=frozenset(),
                           protected_office_ids=frozenset({"mayor"}))
 
 
@@ -102,14 +104,22 @@ feud = Chain(id="feud", world_id=W, steps=(
     hit("s-2", "brenners", "rook", answers="s-1"),
     hit("s-3", "brenners", "ada", answers="s-2"),
     hit("s-4", "talleys", "iris", answers="s-2"),
+    hit("s-5", "okafors", "rook", relation="grudge"),
 ))
 
+# Play the feud out. A sent step is marked done before the next is judged,
+# because a step only answers an earlier one that actually happened.
+outcomes = []
 sent = 0
-for step in feud.steps:
-    verdict = validate_step(step, state=state, limits=limits, hits_sent_this_week=sent)
+for i, step in enumerate(feud.steps):
+    verdict = validate_step(step, chain=feud, state=state, limits=limits,
+                            hits_sent_this_week=sent)
+    outcomes.append(verdict.outcome)
+    print(f"{step.id}: {step.actor_org_id} -> {step.target.id}: {verdict.outcome} ({verdict.reason})")
     if verdict.outcome == "send":
         sent += 1
-    print(f"{step.id}: {step.actor_org_id} -> {step.target.id}: {verdict.outcome} ({verdict.reason})")
+        steps = list(feud.steps)
+        steps[i] = replace(step, status="done")
+        feud = replace(feud, steps=tuple(steps))
 
-assert [validate_step(s, state=state, limits=limits, hits_sent_this_week=0).outcome
-        for s in feud.steps] == ["send", "send", "route_to_session", "drop"]
+assert outcomes == ["send", "send", "route_to_session", "drop", "defer"], outcomes

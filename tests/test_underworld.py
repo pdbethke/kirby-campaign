@@ -5,6 +5,7 @@ from kirby_campaign import (
     Chain,
     ChainStep,
     EntityRef,
+    Organisation,
     UnderworldLimits,
     WorldState,
     validate_step,
@@ -25,7 +26,8 @@ def _hit(target, *, actor="talley-outfit", relation="r-grudge", event=None, prio
 
 
 def _verdict(step, records, *, limits=LIMITS, sent=0):
-    return validate_step(step, state=WorldState(**records), limits=limits,
+    chain = Chain(id="ch-test", world_id="w-1", steps=(step,))
+    return validate_step(step, chain=chain, state=WorldState(**records), limits=limits,
                          hits_sent_this_week=sent)
 
 
@@ -124,3 +126,79 @@ def test_a_turf_claim_is_sent_and_left_to_the_atlas(records):
                      motive_relation_id="r-grudge", motive_event_id=None,
                      motive_step_id=None, status="planned")
     assert _verdict(step, records, sent=99).outcome == "send"
+
+
+# ── final-review fixes ─────────────────────────────────────────────────────
+
+def test_limits_from_another_world_are_a_caller_error(records):
+    other = UnderworldLimits(world_id="w-2", max_hits_per_week=5,
+                             protected_person_ids=frozenset(), protected_office_ids=frozenset())
+    with pytest.raises(ValueError, match="w-2.*w-1|w-1.*w-2"):
+        _verdict(_hit("p-sal"), records, limits=other)
+
+
+def test_an_organisation_the_source_reports_gone_does_not_act(records):
+    from kirby_world import SourceRef
+    ref = SourceRef(source="fms", world_id="w-1", kind="family", external_id="9")
+    talleys = records["organisations"][1]
+    records["organisations"] = (records["organisations"][0],
+                                Organisation(**{**talleys.__dict__, "source_refs": (ref,),
+                                                "source_status": "gone"}),
+                                records["organisations"][2])
+    v = _verdict(_hit("p-sal"), records)
+    assert v.outcome == "drop" and "talley-outfit" in v.reason
+
+
+def _answering_chain(first_status):
+    first = ChainStep(id="s-1", actor_org_id="talley-outfit", action="hit",
+                      target=EntityRef(kind="person", id="p-dead"),
+                      motive_relation_id="r-grudge", motive_event_id=None,
+                      motive_step_id=None, status=first_status)
+    answer = _hit("p-rook", actor="brenner-family", prior="s-1", id="s-2")
+    return Chain(id="ch-1", world_id="w-1", steps=(first, answer)), answer
+
+
+@pytest.mark.parametrize("status, outcome", [
+    ("done", "send"),
+    ("planned", "defer"), ("deferred", "defer"), ("waiting_on_session", "defer"),
+    ("dropped", "drop"), ("failed", "drop"),
+])
+def test_a_step_answers_only_an_earlier_step_that_happened(records, status, outcome):
+    chain, answer = _answering_chain(status)
+    v = validate_step(answer, chain=chain, state=WorldState(**records), limits=LIMITS,
+                      hits_sent_this_week=0)
+    assert v.outcome == outcome, v.reason
+
+
+def test_the_step_must_belong_to_the_chain(records):
+    chain, _ = _answering_chain("done")
+    with pytest.raises(ValueError, match="s-other"):
+        validate_step(_hit("p-sal", id="s-other"), chain=chain, state=WorldState(**records),
+                      limits=LIMITS, hits_sent_this_week=0)
+
+
+def test_a_hit_on_a_protected_target_is_dropped_even_while_its_cause_is_pending(records):
+    first = ChainStep(id="s-1", actor_org_id="talley-outfit", action="hit",
+                      target=EntityRef(kind="person", id="p-sal"),
+                      motive_relation_id="r-grudge", motive_event_id=None,
+                      motive_step_id=None, status="planned")
+    answer = _hit("p-mayor", actor="brenner-family", prior="s-1", id="s-2")
+    chain = Chain(id="ch-1", world_id="w-1", steps=(first, answer))
+    v = validate_step(answer, chain=chain, state=WorldState(**records), limits=LIMITS,
+                      hits_sent_this_week=0)
+    assert v.outcome == "drop" and "mayor" in v.reason
+
+
+def test_a_turf_claim_also_waits_for_the_step_it_answers(records):
+    first = ChainStep(id="s-1", actor_org_id="talley-outfit", action="hit",
+                      target=EntityRef(kind="person", id="p-sal"),
+                      motive_relation_id="r-grudge", motive_event_id=None,
+                      motive_step_id=None, status="planned")
+    claim = ChainStep(id="s-2", actor_org_id="talley-outfit", action="claim_turf",
+                      target=EntityRef(kind="locale", id="old-quarter"),
+                      motive_relation_id=None, motive_event_id=None, motive_step_id="s-1",
+                      status="planned")
+    chain = Chain(id="ch-1", world_id="w-1", steps=(first, claim))
+    v = validate_step(claim, chain=chain, state=WorldState(**records), limits=LIMITS,
+                      hits_sent_this_week=0)
+    assert v.outcome == "defer"

@@ -76,3 +76,22 @@ def test_a_relation_with_a_missing_party_is_refused(records):
 def test_kin_and_members_may_name_people_the_world_no_longer_has(records):
     """brenner-family lists p-404 as a member: pruned by the source, kept."""
     assert "p-404" in WorldState(**records).organisation("brenner-family").member_ids
+
+
+def test_two_records_with_the_same_source_ref_are_refused(records):
+    from kirby_world import SourceRef
+    ref = SourceRef(source="fms", world_id="w-1", kind="person", external_id="2855")
+    records["people"] = (*records["people"],
+                         person("p-a", "A", source_ref=ref, source_status="present"),
+                         person("p-b", "B", source_ref=ref, source_status="present"))
+    with pytest.raises(ValueError, match="fms:w-1:person:2855"):
+        WorldState(**records)
+
+
+def test_a_source_ref_from_another_world_is_refused(records):
+    from kirby_world import SourceRef
+    ref = SourceRef(source="fms", world_id="w-2", kind="person", external_id="1")
+    records["people"] = (*records["people"],
+                         person("p-a", "A", source_ref=ref, source_status="present"))
+    with pytest.raises(ValueError, match="w-2"):
+        WorldState(**records)

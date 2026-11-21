@@ -18,8 +18,11 @@ Records for a campaign world that several campaigns can share. Design: kirby
 - `CampaignLayer`, `EncounterHook`, `visible_account`: what one campaign owns
   and what its players may read.
 - The underworld: `UnderworldLimits` (no defaults: no limits, no underworld),
-  `Chain`, `ChainStep`, `validate_step` (send, defer over the weekly cap, drop,
-  or route a step against a player character to their session).
+  `Chain`, `ChainStep`, `validate_step(step, *, chain, state, limits,
+  hits_sent_this_week)` (send, defer over the weekly cap or while the step it
+  answers has not happened, drop, or route a step against a player character
+  to their session). Limits or a chain from another world raise.
+- `WorldState` refuses a `SourceRef` claimed by two records or naming another world.
 - `WorldDate` (years may precede year 1).
 - Depends on kirby-world 0.2.2 (`SourceRef`); `kirby_fms` is forbidden here.
 

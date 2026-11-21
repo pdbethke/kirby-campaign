@@ -113,16 +113,46 @@ def _verdict(outcome: str, reason: str, campaign_id: str | None = None) -> Verdi
     return Verdict(outcome=outcome, reason=reason, campaign_id=campaign_id)
 
 
-def validate_step(step: ChainStep, *, state: WorldState, limits: UnderworldLimits | None,
-                  hits_sent_this_week: int) -> Verdict:
-    """Decide what happens to one planned step. Checks run in a fixed order;
-    the first that applies decides."""
+#: What an answering step does while the step it answers has not happened.
+_WAIT_ON = ("planned", "deferred", "waiting_on_session")
+
+
+def _answered_step_verdict(step: ChainStep, chain: Chain) -> Verdict | None:
+    """A step that answers an earlier one waits until that step happened, and
+    dies with it if it never will."""
+    if step.motive_step_id is None:
+        return None
+    cited = next(s for s in chain.steps if s.id == step.motive_step_id)
+    if cited.status in _WAIT_ON:
+        return _verdict(DEFER, f"the step it answers, {cited.id!r}, has not happened yet")
+    if cited.status != "done":
+        return _verdict(DROP, f"the step it answers, {cited.id!r}, was {cited.status}")
+    return None
+
+
+def validate_step(step: ChainStep, *, chain: Chain, state: WorldState,
+                  limits: UnderworldLimits | None, hits_sent_this_week: int) -> Verdict:
+    """Decide what happens to one planned step of ``chain``. Checks run in a
+    fixed order; the first that applies decides.
+
+    A world, chain or set of limits that does not match is a caller error and
+    raises; everything about the step itself is a verdict."""
+    if step not in chain.steps:
+        raise ValueError(f"step {step.id!r} is not a step of chain {chain.id!r}")
+    if chain.world_id != state.world_id:
+        raise ValueError(f"chain {chain.id!r} is in world {chain.world_id!r}, not {state.world_id!r}")
     if limits is None:
         return _verdict(DROP, f"world {state.world_id!r} has no underworld limits set")
+    if limits.world_id != state.world_id:
+        raise ValueError(
+            f"the underworld limits are for world {limits.world_id!r}, not {state.world_id!r}"
+        )
     try:
-        state.organisation(step.actor_org_id)
+        actor = state.organisation(step.actor_org_id)
     except KeyError:
         return _verdict(DROP, f"actor organisation {step.actor_org_id!r} is not in the world")
+    if actor.source_status == "gone":
+        return _verdict(DROP, f"actor organisation {step.actor_org_id!r} is gone from the source")
     for kind, cited, lookup in (("relation", step.motive_relation_id, state.relation),
                                 ("event", step.motive_event_id, state.event)):
         if cited is not None:
@@ -133,6 +163,9 @@ def validate_step(step: ChainStep, *, state: WorldState, limits: UnderworldLimit
     if step.action != "hit":
         # Turf targets are locale ids, which live in kirby-world's Atlas; the
         # caller that holds the Atlas checks them.
+        waiting = _answered_step_verdict(step, chain)
+        if waiting is not None:
+            return waiting
         return _verdict(SEND, "turf claim; locale checked against the atlas by the caller")
     target_id = step.target.id
     if not state.has_person(target_id):
@@ -147,6 +180,11 @@ def validate_step(step: ChainStep, *, state: WorldState, limits: UnderworldLimit
     for office in state.offices_held_by(target_id):
         if office.id in limits.protected_office_ids:
             return _verdict(DROP, f"target {target_id!r} holds protected office {office.id!r}")
+    # A target that can never be hit is dropped now; only then does the step
+    # wait for (or die with) the step it answers.
+    waiting = _answered_step_verdict(step, chain)
+    if waiting is not None:
+        return waiting
     if target.pc:
         return _verdict(ROUTE_TO_SESSION, f"target {target_id!r} is a player character",
                         campaign_id=target.campaign_id)

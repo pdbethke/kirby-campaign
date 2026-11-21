@@ -65,7 +65,29 @@ class WorldState:
                 f"ids used by both a person and an organisation: {', '.join(sorted(shared))}"
             )
         object.__setattr__(self, "_index", index)
+        self._check_source_identity()
         self._check_references()
+
+    def _check_source_identity(self) -> None:
+        """Sync matches records by SourceRef, so a SourceRef names one record
+        in this world and nowhere else."""
+        owners: dict[object, str] = {}
+        for collection, kind in _KINDS:
+            for record in getattr(self, collection):
+                refs = getattr(record, "source_refs", None)
+                if refs is None:
+                    single = getattr(record, "source_ref", None)
+                    refs = () if single is None else (single,)
+                for ref in refs:
+                    owner = f"{kind} {record.id!r}"
+                    if ref.world_id != self.world_id:
+                        raise ValueError(
+                            f"{owner}: source ref {ref} names world {ref.world_id!r}, "
+                            f"not {self.world_id!r}"
+                        )
+                    if ref in owners:
+                        raise ValueError(f"source ref {ref} is claimed by {owners[ref]} and {owner}")
+                    owners[ref] = owner
 
     def _must_exist(self, kind: str, record_id: str, owner: str, field: str) -> None:
         if record_id not in self._index[kind]:
