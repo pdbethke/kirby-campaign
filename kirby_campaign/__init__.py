@@ -28,6 +28,7 @@ from kirby_campaign.tiers import (
     effective,
     effective_team,
 )
+from kirby_campaign.world_date import WorldDate
 
 __all__ = [
     "TEAM_OVERRIDES",
@@ -36,6 +37,7 @@ __all__ = [
     "RulingRecord",
     "Team",
     "TeamMember",
+    "WorldDate",
     "assign_sides",
     "effective",
     "effective_team",

@@ -23,10 +23,11 @@ import pathlib
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-#: Engines this package has no business reaching into. kirby-combat is
-#: absent deliberately --- it is the one dependency, declared in
-#: pyproject.toml.
-FORBIDDEN = ("kirby_cost", "kirby_sheet", "kirby_terrain", "kirby_ai")
+#: Packages this one has no business reaching into. kirby-combat and
+#: kirby-world are absent deliberately --- they are the dependencies, declared
+#: in pyproject.toml. kirby_fms is here because the world model is
+#: source-agnostic: a simulator's format is mapped onto it from outside.
+FORBIDDEN = ("kirby_cost", "kirby_sheet", "kirby_terrain", "kirby_ai", "kirby_fms")
 
 
 def _imported_modules(path: pathlib.Path) -> set[str]:
@@ -83,9 +84,11 @@ def test_kirby_combat_does_not_import_this_package():
     )
 
 
-def test_the_one_declared_dependency_is_the_engine():
+def test_the_declared_dependencies_are_the_engine_and_the_places():
+    """kirby-world joined kirby-combat for the world model: world records carry
+    its ``SourceRef``, and their locale ids name its ``Locale``s."""
     text = (ROOT / "pyproject.toml").read_text()
-    assert 'dependencies = ["kirby-combat>=0.39.0"]' in text
+    assert 'dependencies = ["kirby-combat>=0.39.0", "kirby-world>=0.2.2"]' in text
 
 
 def test_the_package_imports():
