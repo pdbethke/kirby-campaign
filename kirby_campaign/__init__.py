@@ -50,6 +50,7 @@ from kirby_campaign.timeline import (
     account_at,
 )
 from kirby_campaign.world_date import WorldDate
+from kirby_campaign.world_state import WorldState
 
 __all__ = [
     "CAUSE_KINDS",
@@ -81,6 +82,7 @@ __all__ = [
     "Tenure",
     "WorldDate",
     "WorldEvent",
+    "WorldState",
     "account_at",
     "assign_sides",
     "effective",
