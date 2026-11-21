@@ -12,6 +12,7 @@ reverse would make resolving an attack depend on knowing what a campaign
 is, dragging rosters, narrative prose and eventually tenancy behind every
 roll. ``tests/test_independence.py`` is what keeps that true.
 """
+from kirby_campaign.person import Kin, Person
 from kirby_campaign.polity import POLITY_KINDS, SCOPE_KINDS, TENURE_HOW, Office, Polity, Tenure
 from kirby_campaign.rulings import RulingRecord, rulings_in_fight
 from kirby_campaign.team import (
@@ -38,7 +39,9 @@ __all__ = [
     "TEAM_STATE",
     "TEAM_TYPES",
     "TENURE_HOW",
+    "Kin",
     "Office",
+    "Person",
     "Polity",
     "RulingRecord",
     "Team",
