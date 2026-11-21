@@ -35,7 +35,10 @@ Records for a campaign world that several campaigns can share. Design: kirby
   equal squad, lowest ranks first), `failure_chance` / `resolve_hit_by_odds` (the
   fallback for organisations with no builds to fight with), and
   `consequences_of_hit` (every casualty, a "hit" or "failed_hit" event with its
-  street account, and the target's side's grudge). The off-screen fight itself is
+  street account, and the target's side's grudge). A purge (an organisation
+  hitting its own member) is allowed: the target faces their own crew alone and
+  no grudge results. Both resolving functions refuse a squad with nobody to send
+  and any contradictory result. The off-screen fight itself is
   the consumer's: it hands in a `HitResult`.
 - `WorldDate` (years may precede year 1).
 - Depends on kirby-world 0.2.2 (`SourceRef`); `kirby_fms` is forbidden here.

@@ -153,7 +153,8 @@ first = feud.steps[0]
 squad = select_hit_squad(first, state=state)
 print(f"\nThe hit on Sal: {squad.attackers} against {squad.defenders}")
 chance = failure_chance(first, state=state, limits=limits)
-result = resolve_hit_by_odds(first, state=state, limits=limits, roll=0.2, leak_roll=0.1)
+result = resolve_hit_by_odds(first, squad, state=state, limits=limits, roll=0.2,
+                             leak_roll=0.1)
 after = consequences_of_hit(first, squad, result, state=state, chain_id=feud.id,
                             date=WorldDate(year=1931, month=11, day=2), event_id="e-1",
                             relation_id="r-1", language="English")

@@ -24,6 +24,10 @@ def hit(target, actor="talley-outfit"):
                      motive_event_id=None, motive_step_id=None, status="planned")
 
 
+def squad_for(state, target):
+    return select_hit_squad(hit(target), state=state)
+
+
 def kill(records, *ids):
     dead = WorldDate(year=121, month=1, day=1)
     records["people"] = tuple(replace(p, died=dead) if p.id in ids else p
@@ -137,26 +141,28 @@ def test_a_side_without_strength_is_refused_by_name(records, value):
 
 def test_a_roll_under_the_chance_fails_and_may_leak(records):
     state, limits = WorldState(**records), make_limits(leak_chance=0.3)
-    leaked = resolve_hit_by_odds(hit("p-sal"), state=state, limits=limits, roll=0.1,
-                                 leak_roll=0.2)
+    leaked = resolve_hit_by_odds(hit("p-sal"), squad_for(state, "p-sal"), state=state,
+                                 limits=limits, roll=0.1, leak_roll=0.2)
     assert (leaked.target_killed, leaked.casualties, leaked.survivors_who_saw,
             leaked.leaked, leaked.how) == (False, (), ("p-sal",), True, "odds")
-    quiet = resolve_hit_by_odds(hit("p-sal"), state=state, limits=limits, roll=0.1,
-                                leak_roll=0.9)
+    quiet = resolve_hit_by_odds(hit("p-sal"), squad_for(state, "p-sal"), state=state,
+                                limits=limits, roll=0.1, leak_roll=0.9)
     assert not quiet.leaked
 
 
 def test_a_roll_over_the_chance_kills(records):
-    r = resolve_hit_by_odds(hit("p-sal"), state=WorldState(**records), limits=make_limits(),
-                            roll=0.5, leak_roll=0.0)
+    state = WorldState(**records)
+    r = resolve_hit_by_odds(hit("p-sal"), squad_for(state, "p-sal"), state=state,
+                            limits=make_limits(), roll=0.5, leak_roll=0.0)
     assert (r.target_killed, r.casualties, r.leaked) == (True, ("p-sal",), False)
 
 
 @pytest.mark.parametrize("roll", [-0.1, 1.0])
 def test_rolls_are_in_the_unit_interval(records, roll):
     with pytest.raises(ValueError, match="roll"):
-        resolve_hit_by_odds(hit("p-sal"), state=WorldState(**records), limits=make_limits(),
-                            roll=roll, leak_roll=0.5)
+        state = WorldState(**records)
+        resolve_hit_by_odds(hit("p-sal"), squad_for(state, "p-sal"), state=state,
+                            limits=make_limits(), roll=roll, leak_roll=0.5)
 
 
 # ── consequences_of_hit ──────────────────────────────────────────────────────
@@ -227,3 +233,65 @@ def test_a_casualty_must_have_been_there(records):
 def test_an_outsider_has_no_one_to_hold_a_grudge(records):
     c = outcome(records, result(survivors_who_saw=("p-mayor",)), target="p-mayor")
     assert c.grudge is None
+
+
+# ── final-review fixes ─────────────────────────────────────────────────────
+
+def test_a_purge_sends_the_crew_against_its_own_man(records):
+    """An organisation may whack its own member. He faces his own crew alone,
+    and nobody is left to hold a grudge against the outfit."""
+    state = WorldState(**records)
+    squad = select_hit_squad(hit("p-t1"), state=state)
+    assert squad.defenders == ("p-t1",)
+    assert squad.defender_org_id == "talley-outfit"
+    assert squad.attackers and "p-t1" not in squad.attackers
+    c = consequences_of_hit(hit("p-t1"), squad, result(survivors_who_saw=("p-t1",)),
+                            state=state, chain_id="ch-1", date=DAY, event_id="e-hit",
+                            relation_id="r-new", language="English")
+    assert c.grudge is None
+
+
+def test_a_purge_of_someone_who_also_runs_with_another_crew_is_still_a_purge(records):
+    records["memberships"] = (*records["memberships"], membership("the-coil", "p-t1", "agent"))
+    squad = select_hit_squad(hit("p-t1"), state=WorldState(**records))
+    assert squad.defender_org_id == "talley-outfit" and squad.attackers
+
+
+def test_a_crew_with_nobody_to_send_cannot_resolve_a_hit(records):
+    kill(records, "p-t1", "p-t2", "p-tlt", "p-rook")
+    state = WorldState(**records)
+    squad = select_hit_squad(hit("p-sal"), state=state)
+    with pytest.raises(ValueError, match="talley-outfit"):
+        resolve_hit_by_odds(hit("p-sal"), squad, state=state, limits=make_limits(),
+                            roll=0.5, leak_roll=0.5)
+    with pytest.raises(ValueError, match="talley-outfit"):
+        consequences_of_hit(hit("p-sal"), squad,
+                            result(target_killed=True, casualties=("p-sal",),
+                                   survivors_who_saw=()),
+                            state=state, chain_id="ch-1", date=DAY, event_id="e-hit",
+                            relation_id="r-new", language="English")
+
+
+def test_an_attacker_without_strength_is_refused_even_against_an_outsider(records):
+    with_influence(records, "talley-outfit", 0.0)
+    with pytest.raises(ValueError, match="talley-outfit"):
+        failure_chance(hit("p-mayor"), state=WorldState(**records), limits=make_limits())
+
+
+@pytest.mark.parametrize("bad, match", [
+    ({"survivors_who_saw": ("p-coil",)}, "p-coil"),
+    ({"casualties": ("p-vic",), "survivors_who_saw": ("p-sal", "p-vic")}, "p-vic"),
+    ({"casualties": ("p-t1", "p-t1")}, "p-t1"),
+])
+def test_a_contradictory_result_is_refused(records, bad, match):
+    with pytest.raises(ValueError, match=match):
+        outcome(records, result(**bad))
+
+
+def test_the_step_must_match_its_squad(records):
+    state = WorldState(**records)
+    squad = select_hit_squad(hit("p-sal"), state=state)
+    with pytest.raises(ValueError, match="p-rook"):
+        consequences_of_hit(hit("p-rook"), squad, result(), state=state, chain_id="ch-1",
+                            date=DAY, event_id="e-hit", relation_id="r-new",
+                            language="English")

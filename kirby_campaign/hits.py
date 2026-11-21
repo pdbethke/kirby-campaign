@@ -42,9 +42,18 @@ def _available(state: WorldState, person_id: str) -> bool:
     return p.alive and p.source_status != "gone"
 
 
-def _side_of(state: WorldState, person_id: str) -> Membership | None:
-    """The membership in which the person holds their highest rank (ties: the
-    lowest organisation id)."""
+def _side_of(state: WorldState, person_id: str, attacker_org_id: str) -> Membership | None:
+    """The target's side.
+
+    A target who belongs to the attacking organisation is being purged: their
+    side is that organisation, and they face its squad alone. Otherwise it is
+    the membership in which they hold their highest rank, by position on each
+    organisation's own ladder (ties: the lowest organisation id). Comparing
+    positions across different ladders is a deliberate simplification.
+    """
+    for ms in state.memberships_of(person_id):
+        if ms.organisation_id == attacker_org_id:
+            return ms
     best = None
     for ms in state.memberships_of(person_id):
         key = (state.organisation(ms.organisation_id).rank_order(ms.rank), ms.organisation_id)
@@ -57,9 +66,10 @@ def select_hit_squad(step: ChainStep, *, state: WorldState) -> Squad:
     if step.action != "hit":
         raise ValueError(f"chain step {step.id!r} is a {step.action}, not a hit")
     target_id = step.target.id
-    side = _side_of(state, target_id)
+    side = _side_of(state, target_id, step.actor_org_id)
+    purge = side is not None and side.organisation_id == step.actor_org_id
     defenders = [target_id]
-    if side is not None:
+    if side is not None and not purge:
         org = state.organisation(side.organisation_id)
         guards = org.rank(side.rank).guards
         below = [ms for ms in state.members_of(org.id, rank=None)
@@ -68,7 +78,7 @@ def select_hit_squad(step: ChainStep, *, state: WorldState) -> Squad:
         defenders += [ms.person_id for ms in below[:guards]]
     attacker = state.organisation(step.actor_org_id)
     defending_members = (
-        set() if side is None
+        set() if side is None or purge
         else {ms.person_id for ms in state.members_of(side.organisation_id, rank=None)}
     )
     # Lowest rank first (bosses do not do their own hits), then by person id.
@@ -117,20 +127,34 @@ def _strength(state: WorldState, org_id: str) -> float:
 def failure_chance(step: ChainStep, *, state: WorldState, limits: UnderworldLimits) -> float:
     """The fallback's chance that a hit fails: the target's rank base, scaled by
     the defending organisation's strength against the attacker's, capped."""
-    side = _side_of(state, step.target.id)
+    attacker = _strength(state, step.actor_org_id)
+    side = _side_of(state, step.target.id, step.actor_org_id)
     if side is None:
         return limits.outsider_failure_base
     org = state.organisation(side.organisation_id)
     base = org.rank(side.rank).hit_failure_base
-    attacker = _strength(state, step.actor_org_id)
     defender = _strength(state, org.id)
     return min(FAILURE_CAP, base * 2 * defender / (attacker + defender))
 
 
-def resolve_hit_by_odds(step: ChainStep, *, state: WorldState, limits: UnderworldLimits,
-                        roll: float, leak_roll: float) -> HitResult:
+def _check_squad(step: ChainStep, squad: Squad) -> None:
+    if (step.target.id, step.actor_org_id) != (squad.target_id, squad.attacker_org_id):
+        raise ValueError(
+            f"step {step.id!r} is {step.actor_org_id!r} hitting {step.target.id!r}, but the "
+            f"squad is {squad.attacker_org_id!r} hitting {squad.target_id!r}"
+        )
+    if not squad.attackers:
+        raise ValueError(
+            f"{squad.attacker_org_id!r} has nobody to send against {squad.target_id!r}; "
+            "the hit cannot happen"
+        )
+
+
+def resolve_hit_by_odds(step: ChainStep, squad: Squad, *, state: WorldState,
+                        limits: UnderworldLimits, roll: float, leak_roll: float) -> HitResult:
     """Resolve a hit without a fight. The caller draws both rolls (in [0, 1))
     and records them, so the outcome can be replayed."""
+    _check_squad(step, squad)
     for name, value in (("roll", roll), ("leak_roll", leak_roll)):
         if not 0.0 <= value < 1.0:
             raise ValueError(f"{name} must be in [0, 1), got {value}")
@@ -163,13 +187,20 @@ def consequences_of_hit(step: ChainStep, squad: Squad, result: HitResult, *, sta
     """Turn a hit's result into deaths, an event and a grudge. Ids, the date and
     the language people are named in are the caller's: this package mints no
     ids, keeps no calendar and has no default language."""
+    _check_squad(step, squad)
     target = squad.target_id
     present = set(squad.attackers) | set(squad.defenders)
     for who in result.casualties:
         if who not in present:
             raise ValueError(f"casualty {who!r} was not part of the hit on {target!r}")
-    if target in result.casualties and target in result.survivors_who_saw:
-        raise ValueError(f"the target {target!r} cannot both die and survive")
+    if len(set(result.casualties)) != len(result.casualties):
+        dupes = sorted({w for w in result.casualties if result.casualties.count(w) > 1})
+        raise ValueError(f"casualties listed twice: {', '.join(dupes)}")
+    for who in result.survivors_who_saw:
+        if who not in squad.defenders:
+            raise ValueError(f"survivor {who!r} was not one of the defenders")
+        if who in result.casualties:
+            raise ValueError(f"{who!r} cannot both die and survive")
     if result.target_killed != (target in result.casualties):
         raise ValueError(
             f"target_killed is {result.target_killed} but the target {target!r} is "
@@ -192,7 +223,7 @@ def consequences_of_hit(step: ChainStep, squad: Squad, result: HitResult, *, sta
     if result.leaked:
         street += f" Word on the street is it was {attacker.name}."
     groups = (EntityRef(kind="organisation", id=attacker.id),)
-    if squad.defender_org_id is not None:
+    if squad.defender_org_id not in (None, attacker.id):
         groups += (EntityRef(kind="organisation", id=squad.defender_org_id),)
     event = WorldEvent(
         id=event_id, world_id=state.world_id, date=date, kind=kind,
@@ -201,7 +232,8 @@ def consequences_of_hit(step: ChainStep, squad: Squad, result: HitResult, *, sta
         cause=Cause(kind="chain", ref=chain_id), source_ref=None,
     )
     grudge = None
-    if squad.defender_org_id is not None and any(
+    purge = squad.defender_org_id == attacker.id
+    if squad.defender_org_id is not None and not purge and any(
         state.rank_of(who, squad.defender_org_id) is not None for who in result.survivors_who_saw
     ):
         grudge = Relation(
