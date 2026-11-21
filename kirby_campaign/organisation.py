@@ -111,9 +111,12 @@ class Relation:
     since: WorldDate | None
     until: WorldDate | None
     cause_event_id: str | None
+    source_ref: SourceRef | None
+    source_status: str | None
 
     def __post_init__(self) -> None:
         owner = f"relation {self.id!r}"
+        check_source_status(owner, self.source_ref is not None, self.source_status)
         require_text(owner, id=self.id, world_id=self.world_id)
         require_choice(owner, "kind", self.kind, RELATION_KINDS)
         if self.a == self.b:

@@ -28,7 +28,7 @@ def test_who_holds_an_office_now(records):
 def test_a_closed_tenure_holds_nothing(records):
     records["tenures"] = (Tenure(id="t-old", world_id="w-1", office_id="mayor",
                                  person_id="p-mayor", started=None,
-                                 ended=WorldDate(year=120, month=1, day=1), how="elected"),)
+                                 ended=WorldDate(year=120, month=1, day=1), how="elected", source_ref=None, source_status=None),)
     assert WorldState(**records).holders_of("mayor") == ()
 
 
@@ -59,7 +59,7 @@ def test_a_head_who_is_not_in_the_world_is_refused(records):
 
 def test_a_tenure_for_a_missing_person_is_refused(records):
     records["tenures"] = (Tenure(id="t-x", world_id="w-1", office_id="mayor",
-                                 person_id="p-nobody", started=None, ended=None, how="elected"),)
+                                 person_id="p-nobody", started=None, ended=None, how="elected", source_ref=None, source_status=None),)
     with pytest.raises(ValueError, match="p-nobody"):
         WorldState(**records)
 
@@ -68,7 +68,7 @@ def test_a_relation_with_a_missing_party_is_refused(records):
     records["relations"] = (Relation(id="r-x", world_id="w-1", kind="war",
                                      a=EntityRef(kind="polity", id="harbour-city"),
                                      b=EntityRef(kind="polity", id="atlantis"),
-                                     since=None, until=None, cause_event_id=None),)
+                                     since=None, until=None, cause_event_id=None, source_ref=None, source_status=None),)
     with pytest.raises(ValueError, match="atlantis"):
         WorldState(**records)
 
@@ -89,4 +89,25 @@ def test_a_source_ref_from_another_world_is_refused(records):
     records["people"] = (*records["people"],
                          person("p-a", "A", source_ref=ref, source_status="present"))
     with pytest.raises(ValueError, match="w-2"):
+        WorldState(**records)
+
+
+@pytest.mark.parametrize("collection", ["tenures", "relations", "memberships", "offices"])
+def test_every_record_kind_is_matched_by_its_source_ref(records, collection):
+    """Reigns, relations, memberships and offices come from a source too, and
+    weekly sync matches them by source id."""
+    from dataclasses import replace
+
+    from kirby_world import SourceRef
+    ref = SourceRef(source="fms", world_id="w-1", kind=collection, external_id="1")
+    first, *rest = records[collection]
+    tagged = replace(first, source_ref=ref, source_status="present")
+    records[collection] = (tagged, *rest)
+    assert WorldState(**records)  # a source ref is accepted on this kind
+    twin = replace(tagged, id=f"{tagged.id}-twin")
+    records[collection] = (tagged, twin, *rest)
+    if collection == "memberships":
+        twin = replace(twin, person_id="p-ada", organisation_id="the-coil", rank="agent")
+        records[collection] = (tagged, twin, *rest)
+    with pytest.raises(ValueError, match="fms:w-1"):
         WorldState(**records)

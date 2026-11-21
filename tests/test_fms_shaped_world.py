@@ -44,10 +44,10 @@ def test_an_fms_shaped_world_constructs():
                          source_ref=ref("nation", "0"), source_status="present"),),
         offices=(Office(id="fms-nation-0-leader", world_id=W, title="Leader",
                         polity_id="fms-nation-0", scope_kind="polity",
-                        scope_id="fms-nation-0"),),
+                        scope_id="fms-nation-0", source_ref=None, source_status=None),),
         tenures=(Tenure(id="fms-reign-0-8", world_id=W, office_id="fms-nation-0-leader",
                         person_id="fms-person-2855", started=WorldDate(year=129, month=2, day=1),
-                        ended=None, how="elected"),),
+                        ended=None, how="elected", source_ref=None, source_status=None),),
         people=people,
         organisations=(Organisation(
             id="fms-org-delorme", world_id=W, name="Delorme", kind="dynasty",

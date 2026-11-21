@@ -18,7 +18,8 @@ def _polity(**over):
 
 def _tenure(**over):
     fields = {"id": "t-1", "world_id": "w-1", "office_id": "mayor", "person_id": "p-mayor",
-                  "started": D(year=120, month=1, day=1), "ended": None, "how": "elected"}
+                  "started": D(year=120, month=1, day=1), "ended": None, "how": "elected",
+              "source_ref": None, "source_status": None}
     fields.update(over)
     return Tenure(**fields)
 
@@ -43,11 +44,11 @@ def test_a_polity_from_a_source_says_whether_it_is_still_there():
 
 def test_an_office_has_a_scope():
     mayor = Office(id="mayor", world_id="w-1", title="Mayor", polity_id="harbour-city",
-                   scope_kind="polity", scope_id="harbour-city")
+                   scope_kind="polity", scope_id="harbour-city", source_ref=None, source_status=None)
     assert mayor.scope_kind == "polity"
     with pytest.raises(ValueError, match="county"):
         Office(id="x", world_id="w-1", title="X", polity_id="harbour-city",
-               scope_kind="county", scope_id="y")
+               scope_kind="county", scope_id="y", source_ref=None, source_status=None)
 
 
 def test_a_tenure_is_open_until_it_ends():

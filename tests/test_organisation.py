@@ -84,7 +84,7 @@ def _relation(**over):
               "a": EntityRef(kind="organisation", id="talley-outfit"),
               "b": EntityRef(kind="organisation", id="brenner-family"),
               "since": WorldDate(year=118, month=4, day=1), "until": None,
-              "cause_event_id": None}
+              "cause_event_id": None, "source_ref": None, "source_status": None}
     fields.update(over)
     return Relation(**fields)
 
