@@ -13,6 +13,7 @@ is, dragging rosters, narrative prose and eventually tenancy behind every
 roll. ``tests/test_independence.py`` is what keeps that true.
 """
 from kirby_campaign.campaign_layer import CampaignLayer, EncounterHook, visible_account
+from kirby_campaign.hits import Squad, select_hit_squad
 from kirby_campaign.membership import Membership
 from kirby_campaign.organisation import (
     ENTITY_KINDS,
@@ -107,6 +108,7 @@ __all__ = [
     "Rank",
     "Relation",
     "RulingRecord",
+    "Squad",
     "Team",
     "TeamMember",
     "Tenure",
@@ -120,6 +122,7 @@ __all__ = [
     "effective",
     "effective_team",
     "rulings_in_fight",
+    "select_hit_squad",
     "side_of_team",
     "sides_from_teams",
     "teams_of",
