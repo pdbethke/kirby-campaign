@@ -12,6 +12,7 @@ reverse would make resolving an attack depend on knowing what a campaign
 is, dragging rosters, narrative prose and eventually tenancy behind every
 roll. ``tests/test_independence.py`` is what keeps that true.
 """
+from kirby_campaign.campaign_layer import CampaignLayer, EncounterHook, visible_account
 from kirby_campaign.organisation import (
     ENTITY_KINDS,
     ORGANISATION_KINDS,
@@ -67,7 +68,9 @@ __all__ = [
     "TEAM_TYPES",
     "TENURE_HOW",
     "TRUTH",
+    "CampaignLayer",
     "Cause",
+    "EncounterHook",
     "EntityRef",
     "Kin",
     "Law",
@@ -91,4 +94,5 @@ __all__ = [
     "side_of_team",
     "sides_from_teams",
     "teams_of",
+    "visible_account",
 ]
