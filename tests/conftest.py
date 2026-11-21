@@ -13,6 +13,7 @@ from kirby_campaign import (
     Organisation,
     Person,
     Polity,
+    Rank,
     Relation,
     Tenure,
     WorldDate,
@@ -33,9 +34,17 @@ def person(id, english, **over):
     return Person(**fields)
 
 
-def organisation(id, name, kind, head, members, territory):
-    return Organisation(id=id, world_id=W, name=name, kind=kind, head_id=head, heir_id=None,
-                        member_ids=members, territory=territory, influence=None, wealth=None,
+#: A mob family's ladder, highest first. Bosses are hard to hit and keep two guards.
+MOB_RANKS = (
+    Rank(name="boss", archetype_character_id="c-mob-boss", hit_failure_base=0.4, guards=2),
+    Rank(name="lieutenant", archetype_character_id="c-gunman", hit_failure_base=0.2, guards=1),
+    Rank(name="soldier", archetype_character_id="c-gunman", hit_failure_base=0.1, guards=0),
+)
+
+
+def organisation(id, name, kind, head, territory, *, ranks=MOB_RANKS, influence=50.0):
+    return Organisation(id=id, world_id=W, name=name, kind=kind, ranks=ranks, head_id=head,
+                        heir_id=None, territory=territory, influence=influence, wealth=None,
                         source_refs=(), source_status=None)
 
 
@@ -64,11 +73,10 @@ def world_records():
         ),
         "organisations": (
             organisation("brenner-family", "The Brenner Family", "mob_family", "p-sal",
-                         ("p-sal", "p-404"), ("old-quarter",)),
+                         ("old-quarter",)),
             organisation("talley-outfit", "The Talley Outfit", "mob_family", "p-rook",
-                         ("p-rook",), ("the-docks",)),
-            organisation("the-coil", "The Coil", "villain_org", "p-coil", ("p-coil",),
                          ("the-docks",)),
+            organisation("the-coil", "The Coil", "villain_org", "p-coil", ("the-docks",)),
         ),
         "relations": (Relation(id="r-grudge", world_id=W, kind="grudge",
                                a=EntityRef(kind="organisation", id="talley-outfit"),

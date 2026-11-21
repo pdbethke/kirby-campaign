@@ -21,6 +21,7 @@ from kirby_campaign import (
     Organisation,
     Person,
     Polity,
+    Rank,
     Relation,
     Tenure,
     UnderworldLimits,
@@ -57,9 +58,14 @@ def npc(id, name, **over):
     return Person(**fields)
 
 
+LADDER = (Rank(name="boss", archetype_character_id=None, hit_failure_base=0.4, guards=2),
+          Rank(name="lieutenant", archetype_character_id=None, hit_failure_base=0.2, guards=1),
+          Rank(name="soldier", archetype_character_id=None, hit_failure_base=0.1, guards=0))
+
+
 def family(id, name, kind, head, turf):
-    return Organisation(id=id, world_id=W, name=name, kind=kind, head_id=head, heir_id=None,
-                        member_ids=(head,), territory=turf, influence=None, wealth=None,
+    return Organisation(id=id, world_id=W, name=name, kind=kind, ranks=LADDER, head_id=head,
+                        heir_id=None, territory=turf, influence=50.0, wealth=None,
                         source_refs=(), source_status=None)
 
 

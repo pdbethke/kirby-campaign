@@ -51,8 +51,7 @@ def test_a_record_from_another_world_is_refused(records):
 
 
 def test_a_head_who_is_not_in_the_world_is_refused(records):
-    records["organisations"] = (organisation("ghosts", "Ghosts", "gang", "p-ghost",
-                                             ("p-ghost",), ()),)
+    records["organisations"] = (organisation("ghosts", "Ghosts", "gang", "p-ghost", ()),)
     with pytest.raises(ValueError, match="p-ghost"):
         WorldState(**records)
 
@@ -71,11 +70,6 @@ def test_a_relation_with_a_missing_party_is_refused(records):
                                      since=None, until=None, cause_event_id=None),)
     with pytest.raises(ValueError, match="atlantis"):
         WorldState(**records)
-
-
-def test_kin_and_members_may_name_people_the_world_no_longer_has(records):
-    """brenner-family lists p-404 as a member: pruned by the source, kept."""
-    assert "p-404" in WorldState(**records).organisation("brenner-family").member_ids
 
 
 def test_two_records_with_the_same_source_ref_are_refused(records):

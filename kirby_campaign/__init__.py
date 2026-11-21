@@ -19,6 +19,7 @@ from kirby_campaign.organisation import (
     RELATION_KINDS,
     EntityRef,
     Organisation,
+    Rank,
     Relation,
 )
 from kirby_campaign.person import Kin, Person
@@ -99,6 +100,7 @@ __all__ = [
     "Organisation",
     "Person",
     "Polity",
+    "Rank",
     "Relation",
     "RulingRecord",
     "Team",
