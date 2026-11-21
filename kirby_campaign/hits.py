@@ -12,7 +12,10 @@ from dataclasses import dataclass
 
 from kirby_campaign._checks import require_choice
 from kirby_campaign.membership import Membership
+from kirby_campaign.organisation import EntityRef, Relation
+from kirby_campaign.timeline import Cause, WorldEvent
 from kirby_campaign.underworld import ChainStep, UnderworldLimits
+from kirby_campaign.world_date import WorldDate
 from kirby_campaign.world_state import WorldState
 
 #: The highest failure chance the fallback gives (spec §6.7a).
@@ -137,3 +140,74 @@ def resolve_hit_by_odds(step: ChainStep, *, state: WorldState, limits: Underworl
                          leaked=leak_roll < limits.leak_chance, how="odds")
     return HitResult(target_killed=True, casualties=(target,), survivors_who_saw=(),
                      leaked=False, how="odds")
+
+
+@dataclass(frozen=True, kw_only=True)
+class Consequences:
+    #: Everyone who died, on either side: each is a death on that Person (and a
+    #: kill order where the person exists in the world's source).
+    deaths: tuple[str, ...]
+    event: WorldEvent
+    #: The target's side now knows who came for them; None when nobody on that
+    #: side lived to tell it, or the target had no side.
+    grudge: Relation | None
+
+
+def _name(state: WorldState, person_id: str, language: str) -> str:
+    return state.person(person_id).name(language) if state.has_person(person_id) else person_id
+
+
+def consequences_of_hit(step: ChainStep, squad: Squad, result: HitResult, *, state: WorldState,
+                        chain_id: str, date: WorldDate, event_id: str, relation_id: str,
+                        language: str) -> Consequences:
+    """Turn a hit's result into deaths, an event and a grudge. Ids, the date and
+    the language people are named in are the caller's: this package mints no
+    ids, keeps no calendar and has no default language."""
+    target = squad.target_id
+    present = set(squad.attackers) | set(squad.defenders)
+    for who in result.casualties:
+        if who not in present:
+            raise ValueError(f"casualty {who!r} was not part of the hit on {target!r}")
+    if target in result.casualties and target in result.survivors_who_saw:
+        raise ValueError(f"the target {target!r} cannot both die and survive")
+    if result.target_killed != (target in result.casualties):
+        raise ValueError(
+            f"target_killed is {result.target_killed} but the target {target!r} is "
+            f"{'' if target in result.casualties else 'not '}among the casualties"
+        )
+    attacker = state.organisation(squad.attacker_org_id)
+    target_name = _name(state, target, language)
+    others = [_name(state, who, language) for who in result.casualties if who != target]
+    if result.target_killed:
+        kind = "hit"
+        truth = f"{attacker.name} killed {target_name}."
+        street = f"{target_name} was found dead."
+    else:
+        kind = "failed_hit"
+        truth = f"{attacker.name} tried to kill {target_name} and failed."
+        street = f"Somebody tried to kill {target_name}."
+    if others:
+        truth += f" Also dead: {', '.join(others)}."
+        street += f" {len(others)} more died with it."
+    if result.leaked:
+        street += f" Word on the street is it was {attacker.name}."
+    groups = (EntityRef(kind="organisation", id=attacker.id),)
+    if squad.defender_org_id is not None:
+        groups += (EntityRef(kind="organisation", id=squad.defender_org_id),)
+    event = WorldEvent(
+        id=event_id, world_id=state.world_id, date=date, kind=kind,
+        actors=tuple(who for who in (*squad.attackers, target) if state.has_person(who)),
+        places=(), groups=groups, truth=truth, public_account=street,
+        cause=Cause(kind="chain", ref=chain_id), source_ref=None,
+    )
+    grudge = None
+    if squad.defender_org_id is not None and any(
+        state.rank_of(who, squad.defender_org_id) is not None for who in result.survivors_who_saw
+    ):
+        grudge = Relation(
+            id=relation_id, world_id=state.world_id, kind="grudge",
+            a=EntityRef(kind="organisation", id=squad.defender_org_id),
+            b=EntityRef(kind="organisation", id=attacker.id),
+            since=date, until=None, cause_event_id=event_id, source_ref=None, source_status=None,
+        )
+    return Consequences(deaths=tuple(result.casualties), event=event, grudge=grudge)

@@ -7,8 +7,10 @@ import pytest
 from kirby_campaign import (
     ChainStep,
     EntityRef,
+    HitResult,
     WorldDate,
     WorldState,
+    consequences_of_hit,
     failure_chance,
     resolve_hit_by_odds,
     select_hit_squad,
@@ -155,3 +157,73 @@ def test_rolls_are_in_the_unit_interval(records, roll):
     with pytest.raises(ValueError, match="roll"):
         resolve_hit_by_odds(hit("p-sal"), state=WorldState(**records), limits=make_limits(),
                             roll=roll, leak_roll=0.5)
+
+
+# ── consequences_of_hit ──────────────────────────────────────────────────────
+
+DAY = WorldDate(year=121, month=10, day=9)
+
+
+def outcome(records, result, target="p-sal"):
+    state = WorldState(**records)
+    step = hit(target)
+    squad = select_hit_squad(step, state=state)
+    return consequences_of_hit(step, squad, result, state=state, chain_id="ch-1", date=DAY,
+                               event_id="e-hit", relation_id="r-new", language="English")
+
+
+def result(**over):
+    fields = {"target_killed": False, "casualties": (), "survivors_who_saw": ("p-sal",),
+              "leaked": False, "how": "fight"}
+    fields.update(over)
+    return HitResult(**fields)
+
+
+def test_a_failed_hit_leaves_a_grudge_and_a_street_story(records):
+    c = outcome(records, result(casualties=("p-t1",)))
+    assert c.deaths == ("p-t1",)
+    assert c.event.kind == "failed_hit" and c.event.cause.ref == "ch-1"
+    assert "Sal Brenner" in c.event.truth and "The Talley Outfit" in c.event.truth
+    assert c.grudge is not None
+    assert (c.grudge.a.id, c.grudge.b.id, c.grudge.kind) == (
+        "brenner-family", "talley-outfit", "grudge")
+    assert c.grudge.cause_event_id == "e-hit" and c.grudge.since == DAY
+
+
+def test_a_successful_hit_lists_every_casualty(records):
+    c = outcome(records, result(target_killed=True, casualties=("p-sal", "p-vic", "p-t2"),
+                                survivors_who_saw=()))
+    assert c.event.kind == "hit"
+    assert set(c.deaths) == {"p-sal", "p-vic", "p-t2"}
+    assert c.grudge is None
+
+
+def test_a_leak_names_the_attacker_on_the_street(records):
+    c = outcome(records, result(leaked=True))
+    assert "The Talley Outfit" in c.event.public_account
+
+
+def test_without_a_leak_the_street_does_not_know_who(records):
+    c = outcome(records, result(leaked=False))
+    assert "Talley" not in c.event.public_account
+
+
+def test_a_target_cannot_both_die_and_survive(records):
+    with pytest.raises(ValueError, match="p-sal"):
+        outcome(records, result(target_killed=True, casualties=("p-sal",),
+                                survivors_who_saw=("p-sal",)))
+
+
+def test_killed_must_agree_with_the_casualties(records):
+    with pytest.raises(ValueError, match="target_killed"):
+        outcome(records, result(target_killed=True, casualties=(), survivors_who_saw=()))
+
+
+def test_a_casualty_must_have_been_there(records):
+    with pytest.raises(ValueError, match="p-mayor"):
+        outcome(records, result(casualties=("p-mayor",)))
+
+
+def test_an_outsider_has_no_one_to_hold_a_grudge(records):
+    c = outcome(records, result(survivors_who_saw=("p-mayor",)), target="p-mayor")
+    assert c.grudge is None

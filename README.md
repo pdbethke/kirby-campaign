@@ -71,8 +71,11 @@ records (`Polity`, `Office`, `Tenure`, `Person`, `Organisation`, `Relation`,
 a `CampaignLayer` holds only what one campaign owns: its player characters,
 what its players know, and the encounters waiting for its next session.
 Geography lives in kirby-world (`Atlas`, `Locale`); records refer to it by id.
-The underworld's planned moves are checked by `validate_step` against the
-world and the GM's `UnderworldLimits`. Run `examples/a_city_of_rival_families.py`.
+Organisations have their own rank ladders and dated, ranked memberships, so the
+world knows which soldier or lieutenant died. The underworld's planned moves are
+checked by `validate_step` against the world and the GM's `UnderworldLimits`; a
+hit's squad is picked by `select_hit_squad`, and its result becomes deaths, an
+event and a grudge through `consequences_of_hit`. Run `examples/a_city_of_rival_families.py`.
 
 ## A note on content
 

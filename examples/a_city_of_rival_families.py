@@ -28,6 +28,10 @@ from kirby_campaign import (
     UnderworldLimits,
     WorldDate,
     WorldState,
+    consequences_of_hit,
+    failure_chance,
+    resolve_hit_by_odds,
+    select_hit_squad,
     validate_step,
 )
 
@@ -82,7 +86,9 @@ state = WorldState(
                     started=WorldDate(year=1931, month=1, day=1), ended=None, how="elected", source_ref=None, source_status=None),),
     people=(npc("iris", "Iris Calloway"), npc("sal", "Sal Brenner"), npc("rook", "Rook Talley"),
             npc("vera", "Vera Okafor"), npc("coilmaster", "The Coilmaster"),
-            npc("ada", "Ada Varga", pc=True, campaign_id="tuesday-group")),
+            npc("ada", "Ada Varga", pc=True, campaign_id="tuesday-group"),
+            npc("vic", "Vic Brenner"), npc("joey", "Joey Brenner"), npc("mags", "Mags Talley"),
+            npc("lenny", "Lenny Shaw"), npc("dutch", "Dutch Okon")),
     organisations=(family("brenners", "The Brenner Family", "mob_family", "sal", ("old-quarter",)),
                    family("talleys", "The Talley Outfit", "mob_family", "rook", ("the-docks",)),
                    family("okafors", "The Okafor Crew", "mob_family", "vera", ("hilltop",)),
@@ -91,8 +97,11 @@ state = WorldState(
         Membership(id=f"m-{org}-{who}", world_id=W, organisation_id=org, person_id=who,
                    rank=rank, started=None, ended=None, source_ref=None, source_status=None)
         for org, who, rank in (
-            ("brenners", "sal", "boss"), ("talleys", "rook", "boss"), ("okafors", "vera", "boss"),
-            ("coil", "coilmaster", "boss"))),
+            ("brenners", "sal", "boss"), ("brenners", "vic", "lieutenant"),
+            ("brenners", "joey", "soldier"),
+            ("talleys", "rook", "boss"), ("talleys", "mags", "lieutenant"),
+            ("talleys", "lenny", "soldier"), ("talleys", "dutch", "soldier"),
+            ("okafors", "vera", "boss"), ("coil", "coilmaster", "boss"))),
     relations=(Relation(id="grudge", world_id=W, kind="grudge",
                         a=EntityRef(kind="organisation", id="talleys"),
                         b=EntityRef(kind="organisation", id="brenners"),
@@ -137,3 +146,19 @@ for i, step in enumerate(feud.steps):
         feud = replace(feud, steps=tuple(steps))
 
 assert outcomes == ["send", "send", "route_to_session", "drop", "defer"], outcomes
+
+# Resolve the first hit. This city has no archetype builds to fight with, so it
+# resolves by the odds; a fixed roll keeps the example reproducible.
+first = feud.steps[0]
+squad = select_hit_squad(first, state=state)
+print(f"\nThe hit on Sal: {squad.attackers} against {squad.defenders}")
+chance = failure_chance(first, state=state, limits=limits)
+result = resolve_hit_by_odds(first, state=state, limits=limits, roll=0.2, leak_roll=0.1)
+after = consequences_of_hit(first, squad, result, state=state, chain_id=feud.id,
+                            date=WorldDate(year=1931, month=11, day=2), event_id="e-1",
+                            relation_id="r-1", language="English")
+print(f"failure chance {chance:.0%}; {after.event.kind}")
+print(f"the truth:  {after.event.truth}")
+print(f"the street: {after.event.public_account}")
+print(f"new grudge: {after.grudge.a.id} -> {after.grudge.b.id}")
+assert squad.defenders == ("sal", "vic", "joey") and after.event.kind == "failed_hit"
